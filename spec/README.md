@@ -23,7 +23,8 @@ to start".
 - dlt and dbt together: "an dab for dlt and dbt i think that is a nice combination".
 - Also lely and caland, not stevin, with mise tasks: "maybe the template should also host
   lely but without steven but with caland with some nice mise tasks".
-- The name is the writer's to propose; `vierlingh` is proposed and not yet confirmed.
+- The name is the writer's to propose; `vierlingh` was proposed and confirmed on 2026-10-08
+  ("Vierling is fine").
 
 **By the writer, on the owner's "get started":**
 
@@ -53,7 +54,8 @@ history (the first commit) and was what ran on the workspace.
 
 The deciding line is the first: a template whose products cannot take its next change is
 a one-time gift, and the wiring will change. The cost is the second line, paid with one
-command in the README. *(decided by the writer; the owner asked for the evaluation)*
+command in the README. *(the writer's evaluation; the owner agreed on 2026-10-08: "Copier is
+fine")*
 
 ## Requirements
 
@@ -127,11 +129,10 @@ goes through the SDK instead; `databricks auth token` only serves OAuth profiles
 
 ## Still open
 
-1. **The name.** Proposed `vierlingh`; runner-up `brunings`.
-2. **leeghwater on PyPI.** Until then a product's job cannot install its wheel's
+1. **leeghwater on PyPI.** Until then a product's job cannot install its wheel's
    dependency, and the template's tests need `LEEGHWATER_WHEEL`.
-3. **The job's `ingest` task, end to end,** on a workspace whose serverless compute can
+2. **The job's `ingest` task, end to end,** on a workspace whose serverless compute can
    reach its storage.
-4. **A product as a GitHub repository,** to see the plan and apply workflows run.
-5. **`mise install` on a clean machine,** to see the tools arrive as listed.
-6. **A release**, after the above, on the owner's word.
+3. **A product as a GitHub repository,** to see the plan and apply workflows run.
+4. **`mise install` on a clean machine,** to see the tools arrive as listed.
+5. **A release**, after the above, on the owner's word.
