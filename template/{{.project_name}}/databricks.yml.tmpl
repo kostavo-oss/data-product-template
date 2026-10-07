@@ -1,0 +1,34 @@
+{{- /* What is not wanted is not written: the skips for every optional part. */ -}}
+{{- if ne .include_dbt "yes" }}{{ skip "dbt" }}{{ end -}}
+{{- if ne .include_lely "yes" }}{{ skip "lely.yml" }}{{ skip ".github/workflows/plan.yml" }}{{ skip ".github/workflows/apply.yml" }}{{ end -}}
+bundle:
+  name: {{.project_name}}
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: The catalog to load into.
+    default: {{.catalog}}
+  warehouse_id:
+    description: The SQL warehouse the job loads through. The job stops without one.
+{{- if .warehouse_id }}
+    default: {{.warehouse_id}}
+{{- end }}
+
+artifacts:
+  default:
+    type: whl
+    build: uv build --wheel
+    path: .
+
+# dev and prod differ here and nowhere else: give a target its own catalog or warehouse
+# under `variables:`. In dev every schema and job gets a prefix with your name, so two
+# people on the same workspace never meet.
+targets:
+  dev:
+    mode: development
+    default: true
+  prod:
+    mode: production

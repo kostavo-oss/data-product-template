@@ -1,0 +1,5 @@
+# Copy to mise.local.toml (not committed) and fill in your own.
+[env]
+DATABRICKS_CONFIG_PROFILE = "my-workspace"
+WAREHOUSE_ID = "0123456789abcdef"
+CATALOG = "main"

@@ -1,0 +1,112 @@
+# Every task of this project, behind one command: `mise run <task>`; `mise tasks` lists them.
+# `mise install` brings the tools. An assistant reaches the tasks through mise's MCP server
+# (.mcp.json).
+
+[tools]
+python = "3.12"
+uv = "latest"
+databricks-cli = "latest"
+{{- if eq .include_lely "yes" }}
+"pipx:lely" = "latest"
+{{- end }}
+{{- if eq .include_caland "yes" }}
+"pipx:caland" = "latest"
+{{- end }}
+
+[env]
+UV_PROJECT_ENVIRONMENT = ".venv"
+# Which workspace, from your laptop: a profile from ~/.databrickscfg. Put your own in
+# mise.local.toml (it is not committed), together with WAREHOUSE_ID.
+DATABRICKS_CONFIG_PROFILE = "DEFAULT"
+# The bundle target the laptop tasks work with.
+TARGET = "dev"
+
+# ── on your laptop, no workspace needed ───────────────────────────────────────
+
+[tasks.dev]
+description = "Run the example pipeline into a local DuckDB file"
+run = "uv run ingest run example"
+
+[tasks.check]
+description = "The gate before a commit: lint, format, the pipelines import{{ if eq .include_dbt "yes" }}, dbt parses{{ end }}"
+run = [
+  "uv run ruff check .",
+  "uv run ruff format --check .",
+  "uv run ingest list",
+{{- if eq .include_dbt "yes" }}
+  "uv run --group dev dbt parse --project-dir dbt --profiles-dir dbt --target parse --vars '{raw_schema: parse}'",
+{{- end }}
+]
+
+[tasks.fix]
+description = "Repair what ruff can repair"
+run = ["uv run ruff check --fix .", "uv run ruff format ."]
+
+[tasks.clean]
+description = "Remove what runs and builds leave behind"
+run = "rm -rf dist *.duckdb *.duckdb.wal .ruff_cache dbt/target dbt/dbt_packages dbt/logs"
+
+# ── the dev target on your workspace ──────────────────────────────────────────
+
+[tasks.deploy]
+description = "Deploy the dev target: the schemas, the job and the wheel"
+run = "databricks bundle deploy -t $TARGET --var warehouse_id=$WAREHOUSE_ID"
+
+[tasks.job]
+description = "Run the job on the workspace, dev target"
+run = "databricks bundle run {{.package_name}} -t $TARGET --var warehouse_id=$WAREHOUSE_ID"
+
+[tasks.doctor]
+description = "What a run from here would use, checked against the workspace"
+run = "uv run ingest doctor --profile $DATABRICKS_CONFIG_PROFILE --warehouse $WAREHOUSE_ID --catalog $CATALOG"
+
+[tasks.ingest]
+description = "Run a pipeline from here into the dev target's schemas: mise run ingest -- example"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+# The schemas by their deployed names, read from the bundle: what the job loads into.
+eval "$(uv run python ops/names.py)"
+uv run ingest run "$@" --profile "$DATABRICKS_CONFIG_PROFILE" --warehouse "$WAREHOUSE_ID" \
+  --catalog "$CATALOG" --schema "$RAW" --staging-schema "$RAW_STAGING"
+'''
+{{- if eq .include_dbt "yes" }}
+
+[tasks.transform]
+description = "Run dbt from here against the dev target's schemas, with the CLI's sign-in"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+eval "$(uv run python ops/names.py)"
+# dbt signs in as everything else here does: the profile, through the Databricks SDK,
+# for this one command.
+eval "$(uv run python ops/dbt_env.py)"
+export DBT_HTTP_PATH="/sql/1.0/warehouses/$WAREHOUSE_ID" DBT_CATALOG="$CATALOG" DBT_SCHEMA="$SILVER"
+uv run --group dev dbt build --project-dir dbt --profiles-dir dbt --target laptop \
+  --vars "{raw_schema: $RAW}" "$@"
+'''
+{{- end }}
+{{- if eq .include_lely "yes" }}
+
+# ── lely: the reviewed deploy ─────────────────────────────────────────────────
+
+[tasks.plan]
+description = "Plan the deploy of the dev target and show what would change; change nothing"
+run = "lely plan -t $TARGET"
+
+[tasks.apply]
+description = "Plan, show, ask, and deploy the dev target"
+run = "lely apply -t $TARGET"
+
+[tasks.destroy]
+description = "Take the dev target down again: plan, show, ask, destroy"
+run = "lely destroy -t $TARGET"
+{{- end }}
+{{- if eq .include_caland "yes" }}
+
+# ── caland: the secrets ───────────────────────────────────────────────────────
+
+[tasks.secrets]
+description = "Open caland on this bundle's workspace: scopes, secrets and grants, in a page"
+run = "caland"
+{{- end }}

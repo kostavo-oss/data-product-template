@@ -1,0 +1,25 @@
+[project]
+name = "vierlingh-template"
+version = "0.0.0"
+description = "Tests for the vierlingh bundle template; the template itself is not a package"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pyyaml>=6.0",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers --strict-config"
+
+[tool.ruff]
+line-length = 90
+target-version = "py311"
+extend-exclude = ["template"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

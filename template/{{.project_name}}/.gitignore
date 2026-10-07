@@ -1,0 +1,17 @@
+# Secrets stay on your laptop. They are not in the wheel either: see pyproject.toml.
+.dlt/secrets.toml
+# Your own profile and warehouse: see mise.local.toml.example.
+mise.local.toml
+
+# What a local run leaves behind.
+*.duckdb
+*.duckdb.wal
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+.venv/
+dist/
+__pycache__/
+.databricks/
+.ruff_cache/

@@ -1,0 +1,54 @@
+# On merge, lely applies the plan that was reviewed on the pull request: not a new plan.
+name: apply
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read # to fetch the plan the pull request made
+  pull-requests: read # to find that pull request
+
+concurrency:
+  group: lely-dev # one run at a time for the target, apply or destroy
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      BUNDLE_VAR_warehouse_id: ${{ vars.WAREHOUSE_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v3
+      - run: uv sync --locked
+      - name: Fetch the plan that was reviewed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          head=$(gh api "repos/$REPO/commits/$COMMIT/pulls" --jq '.[0].head.sha // empty')
+          if [ -z "$head" ]; then
+            echo "This commit came from no pull request: no plan was reviewed."
+            exit 1
+          fi
+          run=$(gh run list --repo "$REPO" --workflow plan.yml --event pull_request \
+            --commit "$head" --status success --limit 1 \
+            --json databaseId --jq '.[0].databaseId // empty')
+          if [ -z "$run" ]; then
+            echo "No plan was made for the pull request's last commit ($head)."
+            exit 1
+          fi
+          gh run download "$run" --repo "$REPO" --name lely-plan-dev
+      - run: lely apply plan.json --yes --github -o result.json
+      - uses: actions/upload-artifact@v4
+        if: always() && hashFiles('result.json') != ''
+        with:
+          name: lely-result-dev
+          path: result.json

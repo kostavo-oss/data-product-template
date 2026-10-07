@@ -1,0 +1,33 @@
+# For coding agents working in {{.project_name}}
+
+Every rule comes with its reason. Keep a rule when the reason holds; say so when it doesn't.
+
+- **A pipeline makes its dlt pipeline with `leeghwater.create_pipeline(...)` and runs it
+  with `leeghwater.run(...)`, never `dlt.pipeline()` or `pipeline.run()`.** Where a run
+  loads — the destination, the schema, the staging schema — is the run's to say, and only
+  pipelines made this way get it. A plain `dlt.pipeline()` loads wherever dlt's own config
+  says, and the run fails.
+- **Never write a schema name, a catalog or a warehouse in code.** The bundle names them
+  (`resources/schemas.yml`), a target may prefix them, and the job passes the deployed names
+  (`resources/*.job.yml`). A name in code is right in one target and wrong in the others.
+- **A secret is asked for with `dlt.secrets.value` and never read by hand.** dlt finds it in
+  the environment, in `.dlt/secrets.toml`, or in the secret scope the app names, under
+  dlt's path joined with `-`: `sources-<source>-<name>`. Never put a value in a file or in
+  the environment, and never print one.
+- **A new pipeline is a function marked `@pipeline` in `src/{{.package_name}}/pipelines/`.**
+  Its parameters become options of `ingest run <name>`. Add a task for it to the job in
+  `resources/{{.project_name}}.job.yml`, with the same options the example task passes.
+{{- if eq .include_dbt "yes" }}
+- **dbt reads raw through `source('raw', ...)` and never by a schema name.** The schema
+  comes from `--vars "{raw_schema: ...}"`, which the job and `mise run transform` pass.
+  New models go in `dbt/models/`; `mise run check` parses them.
+{{- end }}
+- **Run things through mise: `mise tasks` lists them.** `mise run dev` tries a pipeline
+  here, in a local DuckDB file, with no workspace. `mise run check` is the gate before a
+  commit. `mise run ingest -- <pipeline>` and `mise run job` use the dev target on the
+  workspace{{ if eq .include_lely "yes" }}; `mise run plan` shows what a deploy would change before `mise run apply` does it{{ end }}.
+- **When a run fails on Databricks, read its first lines**: they say where it ran, what it
+  was given and what was set up. `mise run doctor` checks the same from here, without
+  running anything.
+- **Deleting the DuckDB file does not start a pipeline over.** dlt keeps a pipeline's state
+  under `~/.dlt/pipelines/<name>/`; delete that too.

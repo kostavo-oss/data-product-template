@@ -1,0 +1,25 @@
+# dbt's profile, for dbt run from your laptop. In the job Databricks makes the profile
+# itself from the task's warehouse, catalog and schema (resources/*.job.yml).
+#
+# `mise run transform` fills the variables below from the Databricks CLI's sign-in and the
+# bundle's deployed schema names, so there is no token to paste anywhere.
+product:
+  target: laptop
+  outputs:
+    laptop:
+      type: databricks
+      host: "{{ env_var('DBT_HOST', '') }}"
+      token: "{{ env_var('DBT_TOKEN', '') }}"
+      http_path: "{{ env_var('DBT_HTTP_PATH', '') }}"
+      catalog: "{{ env_var('DBT_CATALOG', 'main') }}"
+      schema: "{{ env_var('DBT_SCHEMA', 'dev') }}"
+      threads: 4
+    # `dbt parse` needs a target and no workspace: this one.
+    parse:
+      type: databricks
+      host: parse.invalid
+      token: none
+      http_path: /sql/1.0/warehouses/none
+      catalog: main
+      schema: parse
+      threads: 1

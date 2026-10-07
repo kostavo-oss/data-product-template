@@ -1,0 +1,7 @@
+# lely: one plan for the whole deploy, reviewed where the code is reviewed.
+# `lely plan -t dev` shows what would change; `lely apply -t dev` does it after a look.
+# The bundle is the one step today; a step before it (make a scope, stamp a note) or after
+# it (grant, notify) goes in this list, in order.
+steps:
+  - name: bundle
+    uses: bundle

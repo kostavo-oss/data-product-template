@@ -1,0 +1,10 @@
+version: 2
+
+# What dlt landed. The schema's name comes from the run (--vars "{raw_schema: ...}"): the
+# bundle decides it, and a target may prefix it.
+sources:
+  - name: raw
+    schema: "{{ var('raw_schema') }}"
+    tables:
+      - name: numbers
+        description: Numbers and their squares, from the example pipeline.

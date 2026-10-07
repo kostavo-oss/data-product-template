@@ -1,0 +1,27 @@
+[tools]
+python = "3.12"
+uv = "latest"
+databricks-cli = "latest"
+
+[env]
+UV_PROJECT_ENVIRONMENT = ".venv"
+
+[tasks.test]
+description = "Generate every prompt combination with the Databricks CLI and try what it wrote"
+alias = "t"
+run = "uv run pytest"
+
+[tasks.lint]
+description = "Lint the tests with ruff"
+run = "uv run ruff check ."
+
+[tasks.fmt]
+description = "Format the tests with ruff"
+run = "uv run ruff format ."
+
+[tasks.check]
+description = "The gate before a commit: lint, format check, the tests"
+run = ["uv run ruff check .", "uv run ruff format --check .", { task = "test" }]
+
+[tasks.clean]
+run = "rm -rf .pytest_cache .ruff_cache"

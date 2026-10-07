@@ -1,0 +1,8 @@
+version: 2
+
+models:
+  - name: squares
+    description: Each number with its square and the root of that square.
+    columns:
+      - name: id
+        data_tests: [unique, not_null]

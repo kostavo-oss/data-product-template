@@ -1,0 +1,64 @@
+resources:
+  jobs:
+    {{.package_name}}:
+      name: {{.project_name}}
+
+      # Once a day, paused in dev (development mode pauses every schedule).
+      trigger:
+        periodic:
+          interval: 1
+          unit: DAYS
+
+      tasks:
+        - task_key: ingest
+          environment_key: default
+          # Serverless retries a failed task once by itself. A load that failed is retried
+          # when you say so: set max_retries here if you want it.
+          disable_auto_optimization: true
+          python_wheel_task:
+            package_name: {{.project_name}}
+            entry_point: ingest
+            # The words you would type after `ingest`. The schemas by reference, so the
+            # job loads into what this target deployed.
+            parameters:
+              - run
+              - example
+              - --catalog
+              - ${var.catalog}
+              - --schema
+              - ${resources.schemas.raw.name}
+              - --staging-schema
+              - ${resources.schemas.raw_staging.name}
+              - --warehouse
+              - ${var.warehouse_id}
+{{- if .secret_scope }}
+              - --secret-scope
+              - {{.secret_scope}}
+{{- end }}
+{{- if eq .include_dbt "yes" }}
+
+        - task_key: transform
+          depends_on:
+            - task_key: ingest
+          environment_key: default
+          dbt_task:
+            project_directory: ../dbt
+            # Databricks makes the dbt profile from these three; no profiles.yml in the job.
+            warehouse_id: ${var.warehouse_id}
+            catalog: ${var.catalog}
+            schema: ${resources.schemas.silver.name}
+            # Quoted whole: YAML would read the `: ` inside as a mapping.
+            commands:
+              - "dbt deps"
+              - "dbt build --vars '{raw_schema: ${resources.schemas.raw.name}}'"
+{{- end }}
+
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+{{- if eq .include_dbt "yes" }}
+              - dbt-databricks>=1.8,<2
+{{- end }}

@@ -1,0 +1,6 @@
+# dlt's config, where dlt looks for it: https://dlthub.com/docs/general-usage/credentials/setup
+# For values that are not secret. What a run names (--catalog, --schema, --set) wins over
+# this file. Secrets go in a secret scope, or in .dlt/secrets.toml on your laptop.
+
+[runtime]
+log_level = "WARNING"

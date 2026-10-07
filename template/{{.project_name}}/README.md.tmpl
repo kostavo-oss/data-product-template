@@ -1,0 +1,104 @@
+# {{.project_name}}
+
+A data product on Databricks. [dlt](https://dlthub.com) lands the data{{ if eq .include_dbt "yes" }}, [dbt](https://getdbt.com)
+shapes it{{ end }}, one job runs {{ if eq .include_dbt "yes" }}both{{ else }}it{{ end }}, and the schemas are the bundle's. Made with
+[vierlingh](https://github.com/kostavo-oss/vierlingh), run with
+[leeghwater](https://github.com/kostavo-oss/leeghwater){{ if eq .include_lely "yes" }}, deployed with
+[lely](https://github.com/kostavo-oss/lely){{ end }}{{ if eq .include_caland "yes" }}, its secrets kept with
+[caland](https://github.com/kostavo-oss/caland){{ end }}.
+
+```
+src/{{.package_name}}/pipelines/   the dlt pipelines: one function each, marked @pipeline
+{{- if eq .include_dbt "yes" }}
+dbt/models/                 the dbt models, reading raw through source('raw', ...)
+{{- end }}
+resources/schemas.yml       raw{{ if eq .include_dbt "yes" }}, raw_staging, silver{{ else }} and raw_staging{{ end }} — the bundle makes them, the job gets their names
+resources/*.job.yml         the job: ingest{{ if eq .include_dbt "yes" }} → transform{{ end }}
+mise.toml                   every task; `mise tasks` lists them
+```
+
+## Here, with nothing but Python
+
+```sh
+mise install            # python, uv, the Databricks CLI{{ if eq .include_lely "yes" }}, lely{{ end }}{{ if eq .include_caland "yes" }}, caland{{ end }}
+uv sync
+mise run dev            # the example pipeline, into example.duckdb
+mise run check          # lint, format, the pipelines import{{ if eq .include_dbt "yes" }}, dbt parses{{ end }}
+```
+
+`uv run ingest list` names the pipelines; `uv run ingest run example --count 3` runs one
+with an option. dlt keeps a pipeline's state under `~/.dlt/pipelines/<name>/`, so to start
+over, delete that folder and the `.duckdb` file.
+
+## On your workspace: the dev target
+
+Copy `mise.local.toml.example` to `mise.local.toml` and fill in your profile from
+`~/.databrickscfg`, your warehouse and the catalog. Then:
+
+```sh
+mise run deploy         # the schemas, the job and the wheel, prefixed with your name
+mise run job            # the job, on the workspace
+mise run ingest -- example    # a pipeline from here, into the dev target's schemas
+{{- if eq .include_dbt "yes" }}
+mise run transform      # dbt from here, against the same schemas, with the CLI's sign-in
+{{- end }}
+mise run doctor         # what a run from here would use, checked
+```
+
+In development mode every schema and the job carry a prefix with your name, so two people
+on one workspace never meet. The job is told the deployed names: nothing in the code knows
+them.
+
+{{- if eq .include_lely "yes" }}
+
+## Deploying for real: lely
+
+`mise run plan` shows what a deploy would change and changes nothing; `mise run apply`
+does it after you have looked; `mise run destroy` takes the target down again. On GitHub
+the same happens on every pull request (`.github/workflows/plan.yml` posts the plan as a
+comment) and on merge (`apply.yml` applies the plan that was reviewed, not a new one). The
+repository needs `DATABRICKS_HOST` and `WAREHOUSE_ID` as variables and `DATABRICKS_TOKEN`
+as a secret.
+
+`databricks bundle deploy -t prod` works without lely; lely adds the plan and the review.
+{{- end }}
+
+## Secrets
+
+A source asks dlt for a secret: `api_key: str = dlt.secrets.value`. dlt looks in the
+environment, then in `.dlt/secrets.toml` on your laptop, then in the secret scope the app
+names, under dlt's path joined with `-`:
+
+```sh
+databricks secrets create-scope {{ if .secret_scope }}{{.secret_scope}}{{ else }}<scope>{{ end }}
+databricks secrets put-secret {{ if .secret_scope }}{{.secret_scope}}{{ else }}<scope>{{ end }} sources-example-api_key
+```
+{{- if eq .include_caland "yes" }}
+
+`mise run secrets` opens caland on this bundle's workspace: the scopes, their secrets and
+who may read them, in a page.
+{{- end }}
+{{- if not .secret_scope }}
+
+The app names no scope yet: give one in `src/{{.package_name}}/cli.py`
+(`App(..., secret_scopes=["<scope>"])`) and pass it in the job (`--secret-scope`).
+{{- end }}
+
+## Add a pipeline
+
+A function marked `@pipeline` in `src/{{.package_name}}/pipelines/`; its parameters become
+options of `ingest run <name>`. It makes its dlt pipeline with
+`leeghwater.create_pipeline(...)` and runs it with `leeghwater.run(...)` — never with
+`dlt.pipeline()`: where a run loads is the run's to say. Add a task for it in
+`resources/{{.project_name}}.job.yml` with the options the example task passes.
+{{- if eq .include_dbt "yes" }}
+
+## Add a model
+
+A `.sql` file in `dbt/models/`, reading raw through `source('raw', '<table>')` (add the
+table to `dbt/models/sources.yml`). `mise run check` parses it, `mise run transform` builds
+it against the dev target, and the job's `transform` task builds it after `ingest`.
+{{- end }}
+
+A community project, not affiliated with or endorsed by Databricks{{ if eq .include_dbt "yes" }}, dltHub or dbt
+Labs{{ else }} or dltHub{{ end }}.
