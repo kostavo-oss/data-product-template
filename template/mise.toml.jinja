@@ -6,12 +6,12 @@
 python = "3.12"
 uv = "latest"
 databricks-cli = "latest"
-{{- if eq .include_lely "yes" }}
+{%- if include_lely %}
 "pipx:lely" = "latest"
-{{- end }}
-{{- if eq .include_caland "yes" }}
+{%- endif %}
+{%- if include_caland %}
 "pipx:caland" = "latest"
-{{- end }}
+{%- endif %}
 
 [env]
 UV_PROJECT_ENVIRONMENT = ".venv"
@@ -28,14 +28,14 @@ description = "Run the example pipeline into a local DuckDB file"
 run = "uv run ingest run example"
 
 [tasks.check]
-description = "The gate before a commit: lint, format, the pipelines import{{ if eq .include_dbt "yes" }}, dbt parses{{ end }}"
+description = "The gate before a commit: lint, format, the pipelines import{% if include_dbt %}, dbt parses{% endif %}"
 run = [
   "uv run ruff check .",
   "uv run ruff format --check .",
   "uv run ingest list",
-{{- if eq .include_dbt "yes" }}
+{%- if include_dbt %}
   "uv run --group dev dbt parse --project-dir dbt --profiles-dir dbt --target parse --vars '{raw_schema: parse}'",
-{{- end }}
+{%- endif %}
 ]
 
 [tasks.fix]
@@ -54,7 +54,7 @@ run = "databricks bundle deploy -t $TARGET --var warehouse_id=$WAREHOUSE_ID"
 
 [tasks.job]
 description = "Run the job on the workspace, dev target"
-run = "databricks bundle run {{.package_name}} -t $TARGET --var warehouse_id=$WAREHOUSE_ID"
+run = "databricks bundle run {{ package_name }} -t $TARGET --var warehouse_id=$WAREHOUSE_ID"
 
 [tasks.doctor]
 description = "What a run from here would use, checked against the workspace"
@@ -70,7 +70,7 @@ eval "$(uv run python ops/names.py)"
 uv run ingest run "$@" --profile "$DATABRICKS_CONFIG_PROFILE" --warehouse "$WAREHOUSE_ID" \
   --catalog "$CATALOG" --schema "$RAW" --staging-schema "$RAW_STAGING"
 '''
-{{- if eq .include_dbt "yes" }}
+{%- if include_dbt %}
 
 [tasks.transform]
 description = "Run dbt from here against the dev target's schemas, with the CLI's sign-in"
@@ -85,8 +85,8 @@ export DBT_HTTP_PATH="/sql/1.0/warehouses/$WAREHOUSE_ID" DBT_CATALOG="$CATALOG" 
 uv run --group dev dbt build --project-dir dbt --profiles-dir dbt --target laptop \
   --vars "{raw_schema: $RAW}" "$@"
 '''
-{{- end }}
-{{- if eq .include_lely "yes" }}
+{%- endif %}
+{%- if include_lely %}
 
 # ── lely: the reviewed deploy ─────────────────────────────────────────────────
 
@@ -101,12 +101,12 @@ run = "lely apply -t $TARGET"
 [tasks.destroy]
 description = "Take the dev target down again: plan, show, ask, destroy"
 run = "lely destroy -t $TARGET"
-{{- end }}
-{{- if eq .include_caland "yes" }}
+{%- endif %}
+{%- if include_caland %}
 
 # ── caland: the secrets ───────────────────────────────────────────────────────
 
 [tasks.secrets]
 description = "Open caland on this bundle's workspace: scopes, secrets and grants, in a page"
 run = "caland"
-{{- end }}
+{%- endif %}

@@ -1,0 +1,79 @@
+# The vierlingh template: a data product on Databricks. Everything a product gets lives
+# in template/; what is beside this file is the template's own repository.
+#
+#   uvx copier copy gh:kostavo-oss/vierlingh my-product
+#   uvx copier update            # later, in the product: the template's next change
+
+_min_copier_version: "9.4.0"
+_subdirectory: template
+_templates_suffix: .jinja
+
+# A product owns what it writes. These are made once and never touched by
+# `copier update`, which then only moves the wiring: the bundle, the job, the tasks, the
+# workflows and what an agent is given.
+_skip_if_exists:
+  - README.md
+  - .dlt/config.toml
+  - "src/**"
+  - "dbt/models/**"
+
+_message_after_copy: |
+  {{ project_name }} is written. Next:
+
+      cd {{ _copier_conf.dst_path }}
+      mise install && uv sync
+      mise run dev          # the example pipeline, into a local DuckDB file
+      mise run deploy       # the dev target on your workspace
+      mise run job          # the job: ingest{% if include_dbt %}, then transform{% endif %}
+
+  The README has the rest.
+
+# ── questions ───────────────────────────────────────────────────────────────
+
+project_name:
+  type: str
+  help: The project's name — also the bundle's and the job's
+  default: my-product
+  validator: >-
+    {% if not (project_name | regex_search('^[A-Za-z][A-Za-z0-9_-]*$')) %}
+    A name starts with a letter and has only letters, digits, '-' and '_'.
+    {% endif %}
+
+package_name:
+  type: str
+  help: The Python package's name
+  default: "{{ project_name | lower | replace('-', '_') | replace('.', '_') }}"
+  validator: >-
+    {% if not (package_name | regex_search('^[a-z][a-z0-9_]*$')) %}
+    Lowercase letters, digits and '_', starting with a letter.
+    {% endif %}
+
+catalog:
+  type: str
+  help: The Unity Catalog catalog the product loads into
+  default: main
+
+warehouse_id:
+  type: str
+  help: The id of the SQL warehouse to load through (empty — give it at deploy)
+  default: ""
+
+secret_scope:
+  type: str
+  help: A secret scope for the sources' secrets (empty — none yet)
+  default: ""
+
+include_dbt:
+  type: bool
+  help: Shape the data with dbt, as a second task of the job
+  default: true
+
+include_lely:
+  type: bool
+  help: Deploy with lely — a reviewed plan on every pull request, applied on merge
+  default: true
+
+include_caland:
+  type: bool
+  help: Keep the secrets with caland, from a mise task
+  default: true

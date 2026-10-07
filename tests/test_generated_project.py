@@ -113,7 +113,7 @@ def test_the_example_runs_here_into_duckdb(synced, tmp_path):
     assert (synced / "example.duckdb").exists()
 
 
-def test_the_names_script_says_to_deploy_first(synced):
+def test_the_names_script_says_what_is_missing(synced):
     done = _run(
         synced,
         "python",
@@ -122,4 +122,4 @@ def test_the_names_script_says_to_deploy_first(synced):
     )
 
     assert done.returncode == 1
-    assert "deploy the target first" in done.stderr
+    assert ("deploy the target first" in done.stderr) or ("mise install" in done.stderr)

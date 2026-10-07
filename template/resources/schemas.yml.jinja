@@ -4,15 +4,15 @@ resources:
   schemas:
     raw:
       catalog_name: ${var.catalog}
-      name: {{.package_name}}_raw
-      comment: Landed by dlt, as the source gives it. Owned by the {{.project_name}} job.
+      name: {{ package_name }}_raw
+      comment: Landed by dlt, as the source gives it. Owned by the {{ project_name }} job.
     raw_staging:
       catalog_name: ${var.catalog}
-      name: {{.package_name}}_raw_staging
+      name: {{ package_name }}_raw_staging
       comment: dlt stages its merges through this schema. Nothing to read here.
-{{- if eq .include_dbt "yes" }}
+{%- if include_dbt %}
     silver:
       catalog_name: ${var.catalog}
-      name: {{.package_name}}
+      name: {{ package_name }}
       comment: Shaped by dbt from raw. What people query.
-{{- end }}
+{%- endif %}

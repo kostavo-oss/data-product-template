@@ -27,8 +27,8 @@ schemas = json.loads(summary.stdout)["resources"]["schemas"]
 for variable, key in (
     ("RAW", "raw"),
     ("RAW_STAGING", "raw_staging"),
-{{- if eq .include_dbt "yes" }}
+{%- if include_dbt %}
     ("SILVER", "silver"),
-{{- end }}
+{%- endif %}
 ):
     print(f"export {variable}={shlex.quote(schemas[key]['name'])}")
