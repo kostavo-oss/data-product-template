@@ -6,6 +6,7 @@ import sys
 import pytest
 import yaml
 from conftest import BARE, files, generate
+from copier.errors import CopierError
 
 OPTIONAL = {
     "dbt": {"dbt/dbt_project.yml", "dbt/profiles.yml", "dbt/models/squares.sql"},
@@ -25,6 +26,7 @@ ALWAYS = {
     "ops/names.py",
     "ops/dbt_env.py",
     ".github/workflows/ci.yml",
+    ".copier-answers.yml",
 }
 
 
@@ -65,6 +67,7 @@ def test_no_template_syntax_survives(full, bare):
 
 def test_the_package_name_is_derived_from_the_project_name(full):
     assert (full / "src/shop_data").is_dir()
+    assert "package_name: shop_data" in (full / ".copier-answers.yml").read_text()
     assert 'name = "shop-data"' in (full / "pyproject.toml").read_text()
     assert 'ingest = "shop_data.cli:app"' in (full / "pyproject.toml").read_text()
     assert 'name: "shop_data"' in (full / "dbt/dbt_project.yml").read_text()
@@ -141,9 +144,9 @@ def test_the_python_passes_the_linter(full, bare):
 
 
 @pytest.mark.parametrize("name", ["1st", "my product", "x/y"])
-def test_a_name_that_cannot_be_a_project_is_refused(tmp_path, name):
-    with pytest.raises(AssertionError, match="pattern|match|invalid|Error"):
-        generate({**BARE, "project_name": name}, tmp_path)
+def test_a_name_that_cannot_be_a_project_is_refused(template, tmp_path, name):
+    with pytest.raises((CopierError, ValueError, OSError)):
+        generate(template, {**BARE, "project_name": name}, tmp_path)
 
 
 def test_the_jinja_in_the_models_is_only_what_dbt_should_see(full):

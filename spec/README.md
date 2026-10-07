@@ -37,12 +37,31 @@ to start".
 - The laptop loop for dbt goes through a workspace (`--profile`); a local loop on DuckDB
   is not offered, because models written in Databricks SQL would not all run there.
 
+## Copier, not `databricks bundle init`
+
+Asked on 2026-10-07 whether copier would not be better than a bundle template, the writer
+compared the two by building both; this is the second. The first is in the repository's
+history (the first commit) and was what ran on the workspace.
+
+| | `databricks bundle init` | copier |
+|---|---|---|
+| A product's updates | none: generated once, then on its own | `copier update` brings the wiring's next change; `_skip_if_exists` keeps the product's own files |
+| Discoverability | the Databricks way; registrable in a workspace's UI | `uvx copier copy gh:kostavo-oss/vierlingh`; nothing in the workspace |
+| What is rendered | every `.tmpl`, with Go's text/template: no loops to speak of, `missingkey=error`, and `{{ }}` that clashes with dbt's Jinja, GitHub's `${{ }}` and mise's own | only `.jinja` files, with Jinja: the clash is gone, conditional file names replace `{{ skip }}` |
+| Generating | needs credentials configured, though nothing here asks the workspace; the Databricks CLI on the machine | Python only; tests run copier in-process |
+| In the org | nothing else uses it | what every Kostavo tool is made from (`template-python`); one way of doing things |
+
+The deciding line is the first: a template whose products cannot take its next change is
+a one-time gift, and the wiring will change. The cost is the second line, paid with one
+command in the README. *(decided by the writer; the owner asked for the evaluation)*
+
 ## Requirements
 
-- **R1 — A product is one `bundle init` away, with or without a terminal.** The prompts are
-  a name, a catalog, a warehouse, a secret scope, and yes/no for dbt, lely and caland;
-  `--config-file` answers them all. Credentials must be configured for `bundle init`, but
-  the template asks the workspace for nothing, so dummy ones do (that is how the tests run).
+- **R1 — A product is one `copier copy` away, with or without a terminal, and takes the
+  template's next change with `copier update`.** The questions are a name, a catalog, a
+  warehouse, a secret scope, and yes/no for dbt, lely and caland; `--data` answers them
+  without a terminal, and `.copier-answers.yml` in the product remembers them. What a
+  product owns — its pipelines, models, README, dlt config — is never touched by an update.
 - **R2 — The schemas are the bundle's.** `raw` and `raw_staging` always; `silver` with dbt.
   The job gets their deployed names by reference, so a target may prefix them and nothing
   in the code knows them.
@@ -74,8 +93,8 @@ to start".
 - **R10 — Nothing the template writes is read only.** The repository's tests generate the
   full and the bare answers, check what is and isn't there, lint the Python, parse every
   YAML, parse the dbt project, run the example into DuckDB, and look for template syntax
-  that survived. A `.tmpl` file is a Go template; files with dbt's Jinja, GitHub's `${{ }}`
-  or mise's own templates are not `.tmpl`, because the syntaxes clash.
+  that survived. Only `.jinja` files are rendered; dbt's models, GitHub's workflows and
+  mise's files are copied as they are, because their own syntaxes would clash.
 - **R11 — The product carries no trace of any team, platform or customer.**
 
 ## Tried on a workspace
@@ -85,7 +104,7 @@ profile. Everything made was removed afterwards.
 
 | What | Held? |
 |---|---|
-| `bundle init` for the full and the bare answers, with dummy credentials | yes |
+| Generating the full and the bare answers (then with `bundle init` and dummy credentials; now with copier, in-process) | yes |
 | The product's `check`: ruff, `ingest list`, `dbt parse` | yes |
 | `mise run dev`'s command: the example into a local DuckDB file | yes |
 | `bundle validate` and `bundle deploy` of the dev target: three schemas and the job, prefixed `dev_<user>_` | yes |

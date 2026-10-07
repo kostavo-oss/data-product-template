@@ -1,5 +1,0 @@
-"""The project's command line: `ingest`, on a laptop and as the job's entry point."""
-
-from leeghwater import App
-
-app = App(pipelines="{{.package_name}}.pipelines"{{ if .secret_scope }}, secret_scopes=["{{.secret_scope}}"]{{ end }})

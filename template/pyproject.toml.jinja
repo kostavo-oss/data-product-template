@@ -1,7 +1,7 @@
 [project]
-name = "{{.project_name}}"
+name = "{{ project_name }}"
 version = "0.1.0"
-description = "A data product on Databricks: dlt lands the data{{ if eq .include_dbt "yes" }}, dbt shapes it{{ end }}"
+description = "A data product on Databricks: dlt lands the data{% if include_dbt %}, dbt shapes it{% endif %}"
 requires-python = ">=3.11"
 dependencies = [
     # parquet: dlt loads into Databricks from parquet files, and needs pyarrow to write them.
@@ -11,7 +11,7 @@ dependencies = [
 
 [project.scripts]
 # One command, on your laptop and as the job's entry point.
-ingest = "{{.package_name}}.cli:app"
+ingest = "{{ package_name }}.cli:app"
 
 [dependency-groups]
 # What a laptop needs and the job doesn't: a local database to load into, the linter,
@@ -19,9 +19,9 @@ ingest = "{{.package_name}}.cli:app"
 dev = [
     "dlt[duckdb]>=1.30,<2",
     "ruff>=0.6",
-{{- if eq .include_dbt "yes" }}
+{%- if include_dbt %}
     "dbt-databricks>=1.8,<2",
-{{- end }}
+{%- endif %}
 ]
 
 [build-system]
@@ -29,13 +29,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/{{.package_name}}"]
+packages = ["src/{{ package_name }}"]
 
 # dlt looks for .dlt/config.toml in the working directory, and a job's working directory
 # is not this folder. So the wheel carries the file and leeghwater points dlt at it.
 # Only config.toml is named here: secrets.toml never goes into the wheel.
 [tool.hatch.build.targets.wheel.force-include]
-".dlt/config.toml" = "{{.package_name}}/.dlt/config.toml"
+".dlt/config.toml" = "{{ package_name }}/.dlt/config.toml"
 
 [tool.ruff]
 line-length = 90

@@ -1,13 +1,12 @@
 [tools]
 python = "3.12"
 uv = "latest"
-databricks-cli = "latest"
 
 [env]
 UV_PROJECT_ENVIRONMENT = ".venv"
 
 [tasks.test]
-description = "Generate every prompt combination with the Databricks CLI and try what it wrote"
+description = "Generate the full and the bare answers with copier and try what it wrote"
 alias = "t"
 run = "uv run pytest"
 

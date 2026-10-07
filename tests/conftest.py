@@ -1,16 +1,14 @@
-"""The template is tried, not read: every test generates a project with the CLI.
+"""The template is tried, not read: every test generates a product with copier.
 
-`bundle init` wants credentials configured even when no template helper asks the
-workspace for anything; dummy ones do. A real workspace is never reached here.
+The template is copied without its `.git` first, so what is tested is the working tree,
+committed or not. No workspace is reached anywhere here.
 """
 
-import json
-import os
 import shutil
-import subprocess
 from pathlib import Path
 
 import pytest
+from copier import run_copy
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -19,64 +17,48 @@ FULL = {
     "catalog": "main",
     "warehouse_id": "abc123",
     "secret_scope": "shop_data",
-    "include_dbt": "yes",
-    "include_lely": "yes",
-    "include_caland": "yes",
+    "include_dbt": True,
+    "include_lely": True,
+    "include_caland": True,
 }
 BARE = {
     "project_name": "bare",
     "catalog": "main",
     "warehouse_id": "",
     "secret_scope": "",
-    "include_dbt": "no",
-    "include_lely": "no",
-    "include_caland": "no",
+    "include_dbt": False,
+    "include_lely": False,
+    "include_caland": False,
 }
 
 
-def databricks() -> str:
-    found = os.environ.get("DATABRICKS_CLI") or shutil.which("databricks")
-    if not found:
-        pytest.skip("the Databricks CLI is not on the PATH (mise installs it)")
-    return found
-
-
-def generate(answers: dict[str, str], into: Path) -> Path:
-    """Run `databricks bundle init` on this template and return the project's folder."""
-    config = into / "answers.json"
-    config.write_text(json.dumps(answers))
-    done = subprocess.run(
-        [
-            databricks(),
-            "bundle",
-            "init",
-            str(REPO),
-            "--config-file",
-            str(config),
-            "--output-dir",
-            str(into),
-        ],
-        capture_output=True,
-        text=True,
-        env={
-            **os.environ,
-            "DATABRICKS_HOST": "https://nowhere.invalid",
-            "DATABRICKS_TOKEN": "dapi-none",
-            "DATABRICKS_CONFIG_FILE": str(into / "no-such-config"),
-        },
+@pytest.fixture(scope="session")
+def template(tmp_path_factory) -> Path:
+    """This working tree, as copier sees a template that is not a git repository."""
+    copy = tmp_path_factory.mktemp("template") / "vierlingh"
+    shutil.copytree(
+        REPO,
+        copy,
+        ignore=shutil.ignore_patterns(".git", ".venv", ".pytest_cache", "tests"),
     )
-    assert done.returncode == 0, done.stdout + done.stderr
-    return into / answers["project_name"]
+    return copy
+
+
+def generate(template: Path, answers: dict, into: Path) -> Path:
+    """Run copier on the template and return the product's folder."""
+    product = into / answers["project_name"]
+    run_copy(str(template), str(product), data=answers, defaults=True, quiet=True)
+    return product
 
 
 @pytest.fixture(scope="session")
-def full(tmp_path_factory) -> Path:
-    return generate(FULL, tmp_path_factory.mktemp("full"))
+def full(template, tmp_path_factory) -> Path:
+    return generate(template, FULL, tmp_path_factory.mktemp("full"))
 
 
 @pytest.fixture(scope="session")
-def bare(tmp_path_factory) -> Path:
-    return generate(BARE, tmp_path_factory.mktemp("bare"))
+def bare(template, tmp_path_factory) -> Path:
+    return generate(template, BARE, tmp_path_factory.mktemp("bare"))
 
 
 LEFT_BY_RUNS = (

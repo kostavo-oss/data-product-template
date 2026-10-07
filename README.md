@@ -1,22 +1,25 @@
 # vierlingh
 
-**A data product for Databricks, ready to start from.** A Databricks Asset Bundle template:
-dlt lands the data, dbt shapes it, one job runs both, the schemas are the bundle's — and the
-Kostavo tools around it, each optional: leeghwater runs the pipelines, lely deploys with a
-reviewed plan, caland keeps the secrets, and every task is one `mise run` away.
+**A data product for Databricks, ready to start from.** A template for a Databricks Asset
+Bundle: dlt lands the data, dbt shapes it, one job runs both, the schemas are the bundle's —
+and the Kostavo tools around it, each optional: leeghwater runs the pipelines, lely deploys
+with a reviewed plan, caland keeps the secrets, and every task is one `mise run` away.
 
 > **Status: not released.** A generated product has been deployed to a workspace, loaded
 > from a laptop, and shaped by its dbt task on serverless; what was tried and what was not
 > is in `spec/README.md`. Until leeghwater is on PyPI, a product's job can't install it.
 
 ```sh
-databricks bundle init https://github.com/kostavo-oss/vierlingh
-cd <your product>
+uvx copier copy gh:kostavo-oss/vierlingh my-product
+cd my-product
 mise install && uv sync
 mise run dev        # the example pipeline, here, into a local DuckDB file
 mise run deploy     # the dev target on your workspace
 mise run job        # the job: ingest, then transform
 ```
+
+Later, in the product, `uvx copier update` brings the template's next change — to the
+bundle, the job, the tasks and the workflows, never to your pipelines, models or README.
 
 ## What you get
 
@@ -32,8 +35,9 @@ mise run job        # the job: ingest, then transform
   AGENTS.md                      the rules, each with its reason
 ```
 
-The prompts: a name, a catalog, a warehouse, a secret scope, and whether to include dbt,
-lely and caland. `--config-file` answers them without a terminal.
+The questions: a name, a catalog, a warehouse, a secret scope, and whether to include dbt,
+lely and caland. `--data name=value` or a data file answers them without a terminal, and
+`.copier-answers.yml` in the product remembers them.
 
 ## Why
 

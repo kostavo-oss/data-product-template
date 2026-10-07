@@ -1,8 +1,5 @@
-{{- /* What is not wanted is not written: the skips for every optional part. */ -}}
-{{- if ne .include_dbt "yes" }}{{ skip "dbt" }}{{ end -}}
-{{- if ne .include_lely "yes" }}{{ skip "lely.yml" }}{{ skip ".github/workflows/plan.yml" }}{{ skip ".github/workflows/apply.yml" }}{{ end -}}
 bundle:
-  name: {{.project_name}}
+  name: {{ project_name }}
 
 include:
   - resources/*.yml
@@ -10,12 +7,12 @@ include:
 variables:
   catalog:
     description: The catalog to load into.
-    default: {{.catalog}}
+    default: {{ catalog }}
   warehouse_id:
     description: The SQL warehouse the job loads through. The job stops without one.
-{{- if .warehouse_id }}
-    default: {{.warehouse_id}}
-{{- end }}
+{%- if warehouse_id %}
+    default: {{ warehouse_id }}
+{%- endif %}
 
 artifacts:
   default:
