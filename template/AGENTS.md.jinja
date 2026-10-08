@@ -22,6 +22,12 @@ Every rule comes with its reason. Keep a rule when the reason holds; say so when
   comes from `--vars "{raw_schema: ...}"`, which the job and `mise run transform` pass.
   New models go in `dbt/models/`; `mise run check` parses them.
 {%- endif %}
+{%- if secret_scope %}
+- **The secret scope is a step, `ops/scope.py`, not a name typed in the job.** The bundle gets
+  it as `${var.secret_scope}`; under lely from `${steps.scope.name}`. A new step of the
+  deploy is written the same way: a class, `uv run ops/<step>.py --help`, then a line in
+  `lely.yml`.
+{%- endif %}
 - **Run things through mise: `mise tasks` lists them.** `mise run dev` tries a pipeline
   here, in a local DuckDB file, with no workspace. `mise run check` is the gate before a
   commit. `mise run ingest -- <pipeline>` and `mise run job` use the dev target on the

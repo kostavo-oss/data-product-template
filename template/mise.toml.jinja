@@ -56,6 +56,13 @@ run = "databricks bundle deploy -t $TARGET --var warehouse_id=$WAREHOUSE_ID"
 description = "Run the job on the workspace, dev target"
 run = "databricks bundle run {{ package_name }} -t $TARGET --var warehouse_id=$WAREHOUSE_ID"
 
+{%- if secret_scope %}
+
+[tasks.scope]
+description = "Make the product's secret scope on the workspace, as a step of its own"
+run = "uv run ops/scope.py apply -t $TARGET --name {{ secret_scope }} --profile $DATABRICKS_CONFIG_PROFILE"
+{%- endif %}
+
 [tasks.doctor]
 description = "What a run from here would use, checked against the workspace"
 run = "uv run ingest doctor --profile $DATABRICKS_CONFIG_PROFILE --warehouse $WAREHOUSE_ID --catalog $CATALOG"

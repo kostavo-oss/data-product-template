@@ -13,6 +13,11 @@ variables:
 {%- if warehouse_id %}
     default: {{ warehouse_id }}
 {%- endif %}
+{%- if secret_scope %}
+  secret_scope:
+    description: The secret scope the sources' secrets are in. ops/scope.py makes it.
+    default: {{ secret_scope }}
+{%- endif %}
 
 artifacts:
   default:

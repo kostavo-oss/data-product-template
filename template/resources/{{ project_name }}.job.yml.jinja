@@ -33,7 +33,7 @@ resources:
               - ${var.warehouse_id}
 {%- if secret_scope %}
               - --secret-scope
-              - {{ secret_scope }}
+              - ${var.secret_scope}
 {%- endif %}
 {%- if include_dbt %}
 

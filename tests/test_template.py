@@ -11,6 +11,7 @@ from copier.errors import CopierError
 OPTIONAL = {
     "dbt": {"dbt/dbt_project.yml", "dbt/profiles.yml", "dbt/models/squares.sql"},
     "lely": {"lely.yml", ".github/workflows/plan.yml", ".github/workflows/apply.yml"},
+    "scope": {"ops/scope.py"},
 }
 ALWAYS = {
     "databricks.yml",
@@ -36,6 +37,7 @@ def test_the_full_answers_write_everything(full):
     assert written >= ALWAYS
     assert OPTIONAL["dbt"] <= written
     assert OPTIONAL["lely"] <= written
+    assert OPTIONAL["scope"] <= written
     assert {"src/shop_data/cli.py", "src/shop_data/pipelines/example.py"} <= written
     assert "resources/shop-data.job.yml" in written
 
@@ -46,6 +48,7 @@ def test_the_bare_answers_skip_what_was_not_wanted(bare):
     assert written >= ALWAYS
     assert not (OPTIONAL["dbt"] & written)
     assert not (OPTIONAL["lely"] & written)
+    assert not (OPTIONAL["scope"] & written)
     assert "src/bare/cli.py" in written
     assert "secret_scopes" not in (bare / "src/bare/cli.py").read_text()
     assert "--secret-scope" not in (bare / "resources/bare.job.yml").read_text()
@@ -85,7 +88,7 @@ def test_the_job_is_told_the_bundles_schema_names_by_reference(full):
         == "${resources.schemas.raw_staging.name}"
     )
     assert words[words.index("--warehouse") + 1] == "${var.warehouse_id}"
-    assert words[-2:] == ["--secret-scope", "shop_data"]
+    assert words[-2:] == ["--secret-scope", "${var.secret_scope}"]
     assert tasks["ingest"]["disable_auto_optimization"] is True
 
     dbt = tasks["transform"]["dbt_task"]
@@ -167,3 +170,20 @@ def test_the_readme_explains_each_part_that_was_included(full, bare):
         assert word not in bare_readme
     assert "names no scope yet" in bare_readme
     assert "names no scope yet" not in full_readme
+
+
+def test_the_scope_is_a_step_before_the_bundle(full, bare):
+    """The scope step feeds the bundle under lely, and the job reads the variable."""
+    lely = yaml.safe_load((full / "lely.yml").read_text())
+    steps = lely["steps"]
+    assert [s["name"] for s in steps] == ["scope", "bundle"]
+    assert steps[0]["uses"] == "./ops/scope.py:SecretScope"
+    assert steps[0]["with"] == {"name": "shop_data"}
+    assert steps[1]["with"]["vars"] == {"secret_scope": "${steps.scope.name}"}
+    variables = yaml.safe_load((full / "databricks.yml").read_text())["variables"]
+    assert variables["secret_scope"]["default"] == "shop_data"
+    assert "SecretScope.main()" in (full / "ops/scope.py").read_text()
+    assert "[tasks.scope]" in (full / "mise.toml").read_text()
+
+    bare_variables = yaml.safe_load((bare / "databricks.yml").read_text())["variables"]
+    assert "secret_scope" not in bare_variables
