@@ -25,5 +25,5 @@ been tried on a workspace.
 
 ```sh
 uv sync
-mise run check    # lint, format, the tests; LEEGHWATER_WHEEL=<wheel> until leeghwater is on PyPI
+mise run check    # lint, format, the tests (the generated project syncs leeghwater from PyPI)
 ```

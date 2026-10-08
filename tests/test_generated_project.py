@@ -1,7 +1,7 @@
 """The generated project, run: its own `check`, and the example pipeline into DuckDB.
 
-Needs uv. leeghwater comes from PyPI unless LEEGHWATER_WHEEL names a wheel to use instead
-(until the first release, it must).
+Needs uv. leeghwater comes from PyPI, or from the wheel LEEGHWATER_WHEEL names, to try a
+leeghwater change before it is released.
 """
 
 import os

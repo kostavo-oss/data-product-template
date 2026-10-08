@@ -5,9 +5,9 @@ Bundle: dlt lands the data, dbt shapes it, one job runs both, the schemas are th
 and the Kostavo tools around it, each optional: leeghwater runs the pipelines, lely deploys
 with a reviewed plan, caland keeps the secrets, and every task is one `mise run` away.
 
-> **Status: not released.** A generated product has been deployed to a workspace, loaded
-> from a laptop, and shaped by its dbt task on serverless; what was tried and what was not
-> is in `spec/README.md`. Until leeghwater is on PyPI, a product's job can't install it.
+> **Early.** A generated product has been deployed to a workspace, loaded from a laptop,
+> and shaped by its dbt task on serverless; what was tried and what was not is in
+> `spec/README.md`.
 
 ```sh
 uvx copier copy gh:kostavo-oss/vierlingh my-product

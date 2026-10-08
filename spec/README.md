@@ -113,7 +113,7 @@ profile. Everything made was removed afterwards.
 | `ops/names.py` reads the deployed names back from `bundle summary` | yes |
 | The laptop ingest into the deployed raw schema | yes |
 | dbt from the laptop against the deployed schemas, signed in through the SDK: model built, two tests pass | yes |
-| The job's `transform` task on serverless, with the dbt task made from `warehouse_id`/`catalog`/`schema`: `squares` built from raw | yes — with the local leeghwater wheel added to the job's environment, because leeghwater is not on PyPI |
+| The job's `transform` task on serverless, with the dbt task made from `warehouse_id`/`catalog`/`schema`: `squares` built from raw | yes — with the local leeghwater wheel added to the job's environment; leeghwater was not yet on PyPI (it is since 0.1.0, 2026-10-08) |
 | lely `validate`, `plan` and `status` on the product | yes |
 | `bundle destroy` | yes |
 | The job's `ingest` task | **not run**: it needs leeghwater from PyPI, and this workspace's serverless compute refuses dlt's upload to storage (known from leeghwater's own run) |
@@ -129,10 +129,8 @@ goes through the SDK instead; `databricks auth token` only serves OAuth profiles
 
 ## Still open
 
-1. **leeghwater on PyPI.** Until then a product's job cannot install its wheel's
-   dependency, and the template's tests need `LEEGHWATER_WHEEL`.
-2. **The job's `ingest` task, end to end,** on a workspace whose serverless compute can
+1. **The job's `ingest` task, end to end,** on a workspace whose serverless compute can
    reach its storage.
-3. **A product as a GitHub repository,** to see the plan and apply workflows run.
-4. **`mise install` on a clean machine,** to see the tools arrive as listed.
-5. **A release**, after the above, on the owner's word.
+2. **A product as a GitHub repository,** to see the plan and apply workflows run.
+3. **`mise install` on a clean machine,** to see the tools arrive as listed.
+4. **A release**, after the above, on the owner's word.
