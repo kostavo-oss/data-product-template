@@ -1,0 +1,20 @@
+# lely: one plan for the whole deploy, reviewed where the code is reviewed.
+# `lely plan -t dev` shows what would change; `lely apply -t dev` does it after a look.
+# A step before the bundle feeds it; a step after it (grant, notify) stands below.
+steps:
+{%- if secret_scope %}
+  # The secret scope, made before the bundle: a fresh target brings its scope with it.
+  # ops/scope.py is a step and a command of its own: `uv run ops/scope.py --help`.
+  - name: scope
+    uses: ./ops/scope.py:SecretScope
+    with:
+      name: {{ secret_scope }}
+
+{% endif %}
+  - name: bundle
+    uses: bundle
+{%- if secret_scope %}
+    with:
+      vars:
+        secret_scope: ${steps.scope.name}
+{%- endif %}

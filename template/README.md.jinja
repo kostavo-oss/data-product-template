@@ -78,6 +78,20 @@ databricks secrets put-secret {% if secret_scope %}{{ secret_scope }}{% else %}<
 `mise run secrets` opens caland on this bundle's workspace: the scopes, their secrets and
 who may read them, in a page.
 {%- endif %}
+{%- if secret_scope %}
+
+**The scope is a step.** `ops/scope.py` makes `{{ secret_scope }}` — before the bundle under
+lely (`lely.yml`, step `scope`; `${steps.scope.name}` reaches the job as `${var.secret_scope}`),
+or on its own, with no lely config:
+
+```sh
+uv run ops/scope.py plan -t dev --name {{ secret_scope }}      # shows what it would make
+mise run scope                                           # makes it on your workspace
+uv run ops/scope.py check -t dev --name {{ secret_scope }} --live
+```
+
+It is a lely step with its own command line; `uv run ops/scope.py --help` lists them.
+{%- endif %}
 {%- if not secret_scope %}
 
 The app names no scope yet: give one in `src/{{ package_name }}/cli.py`

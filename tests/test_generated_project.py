@@ -123,3 +123,15 @@ def test_the_names_script_says_what_is_missing(synced):
 
     assert done.returncode == 1
     assert ("deploy the target first" in done.stderr) or ("mise install" in done.stderr)
+
+
+def test_the_scope_step_runs_on_its_own(full: Path):
+    """`uv run ops/scope.py --help` resolves lely from PyPI (0.3 or newer) and shows the
+    step's commands: the step is a command of its own before any workspace is reached."""
+    done = subprocess.run(
+        [uv(), "run", "ops/scope.py", "--help"], cwd=full, capture_output=True, text=True
+    )
+
+    assert done.returncode == 0, done.stderr[-600:]
+    for command in ("plan", "apply", "destroy", "status", "check"):
+        assert command in done.stdout
