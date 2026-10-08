@@ -102,8 +102,8 @@ fine")*
   of `lely.yml`, feeding the bundle `${steps.scope.name}`; the job reads it as
   `${var.secret_scope}`; and on its own, `uv run ops/scope.py plan|apply|check -t dev
   --name <scope>` with no lely config. `mise run scope` runs it. A fresh target brings its
-  scope with it, and the name is typed once. *(decided; the step is lely's documented
-  example, proven on a workspace by lely on 2026-10-08)*
+  scope with it, and the name is typed once. *(decided; run on the owner's test workspace on 2026-10-08, alone and
+  under lely with the bundle)*
 - **R11 — The product carries no trace of any team, platform or customer.**
 
 ## Tried on a workspace
@@ -123,7 +123,7 @@ profile. Everything made was removed afterwards.
 | The job's `transform` task on serverless, with the dbt task made from `warehouse_id`/`catalog`/`schema`: `squares` built from raw | yes — with the local leeghwater wheel added to the job's environment; leeghwater was not yet on PyPI (it is since 0.1.0, 2026-10-08) |
 | lely `validate`, `plan` and `status` on the product | yes |
 | `bundle destroy` | yes |
-| The scope step (`ops/scope.py`) generated and run on its own, and under lely with the bundle | **not run**: needs lely 0.3 on PyPI, then a target |
+| The scope step (`ops/scope.py`) generated and run on its own, and under lely with the bundle | yes (2026-10-08, lely 0.3.0): `plan`, `apply` made the scope, `status` listed it, `lely plan -t dev` wired `secret_scope = … ← scope.name` into the bundle, `destroy` removed it |
 | The job's `ingest` task | **not run**: it needs leeghwater from PyPI, and this workspace's serverless compute refuses dlt's upload to storage (known from leeghwater's own run) |
 | `mise install` and the tasks through mise itself | **not run**: the task commands were run by hand; mise would also have installed tools on this machine |
 | caland from the `secrets` task | **not run**: it opens a page in a browser |
