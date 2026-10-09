@@ -1,7 +1,7 @@
 [project]
-name = "vierlingh-template"
+name = "data-product-template"
 version = "0.0.0"
-description = "Tests for the vierlingh bundle template; the template itself is not a package"
+description = "Tests for the data product bundle template; the template itself is not a package"
 requires-python = ">=3.11"
 dependencies = []
 

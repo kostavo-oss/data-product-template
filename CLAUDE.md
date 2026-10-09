@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-`vierlingh`: a Databricks Asset Bundle template for a data product (dlt, dbt, one job, the
+`data-product-template` (was `vierlingh` until 2026-10-10): a Databricks Asset Bundle template for a data product (dlt, dbt, one job, the
 schemas as bundle resources), with the Kostavo tools around it as options. Read
 `spec/README.md` first: what a generated product must do, who decided what, and what has
 been tried on a workspace.
