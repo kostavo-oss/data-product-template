@@ -3,9 +3,9 @@
 A data product on Databricks. [dlt](https://dlthub.com) lands the data{% if include_dbt %}, [dbt](https://getdbt.com)
 shapes it{% endif %}, one job runs {% if include_dbt %}both{% else %}it{% endif %}, and the schemas are the bundle's. Made with
 [vierlingh](https://github.com/kostavo-oss/vierlingh), run with
-[leeghwater](https://github.com/kostavo-oss/leeghwater){% if include_lely %}, deployed with
-[lely](https://github.com/kostavo-oss/lely){% endif %}{% if include_caland %}, its secrets kept with
-[caland](https://github.com/kostavo-oss/caland){% endif %}.
+[leeghwater](https://github.com/kostavo-oss/tools/tree/main/packages/leeghwater){% if include_lely %}, deployed with
+[lely](https://github.com/kostavo-oss/tools/tree/main/packages/lely){% endif %}{% if include_caland %}, its secrets kept with
+[caland](https://github.com/kostavo-oss/tools/tree/main/packages/caland){% endif %}.
 
 ```
 src/{{ package_name }}/pipelines/   the dlt pipelines: one function each, marked @pipeline
