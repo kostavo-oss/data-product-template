@@ -1,4 +1,4 @@
-# vierlingh
+# data-product-template
 
 **A data product for Databricks, ready to start from.** A template for a Databricks Asset
 Bundle: dlt lands the data, dbt shapes it, one job runs both, the schemas are the bundle's —
@@ -10,7 +10,7 @@ with a reviewed plan, caland keeps the secrets, and every task is one `mise run`
 > `spec/README.md`.
 
 ```sh
-uvx copier copy gh:kostavo-oss/vierlingh my-product
+uvx copier copy gh:kostavo-oss/data-product-template my-product
 cd my-product
 mise install && uv sync
 mise run dev        # the example pipeline, here, into a local DuckDB file
@@ -62,7 +62,7 @@ is a handbook you can run.
 > **Terraform for your platform, Asset Bundles for your code, stevin for your data model —
 > and lely to deploy them as one.**
 
-vierlingh is one of the [Kostavo tools](https://github.com/kostavo-oss) for Databricks: the
+data-product-template is one of the [Kostavo tools](https://github.com/kostavo-oss) for Databricks: the
 bundle you start from.
 
 Community project, not affiliated with or endorsed by Databricks, dltHub or dbt Labs.

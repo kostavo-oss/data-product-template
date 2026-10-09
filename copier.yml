@@ -1,7 +1,7 @@
-# The vierlingh template: a data product on Databricks. Everything a product gets lives
+# The data product template: a data product on Databricks. Everything a product gets lives
 # in template/; what is beside this file is the template's own repository.
 #
-#   uvx copier copy gh:kostavo-oss/vierlingh my-product
+#   uvx copier copy gh:kostavo-oss/data-product-template my-product
 #   uvx copier update            # later, in the product: the template's next change
 
 _min_copier_version: "9.4.0"

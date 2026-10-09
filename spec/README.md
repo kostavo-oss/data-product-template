@@ -1,6 +1,6 @@
 # spec
 
-What vierlingh has to do, and how we know that it does.
+What the data product template has to do, and how we know that it does.
 
 Written and built on 2026-10-07, after the owner decided that starting a data product is a
 bundle template's job and not a library command's, and asked for dlt and dbt together,
@@ -23,7 +23,7 @@ to start".
 - dlt and dbt together: "an dab for dlt and dbt i think that is a nice combination".
 - Also lely and caland, not stevin, with mise tasks: "maybe the template should also host
   lely but without steven but with caland with some nice mise tasks".
-- The name is the writer's to propose; `vierlingh` was proposed and confirmed on 2026-10-08
+- The name is the writer's to propose; `vierlingh` was proposed and confirmed on 2026-10-08; renamed `data-product-template` on 2026-10-10 so the copier URL says what it is (the namesake stays in the README)
   ("Vierling is fine").
 
 **By the writer, on the owner's "get started":**
@@ -47,7 +47,7 @@ history (the first commit) and was what ran on the workspace.
 | | `databricks bundle init` | copier |
 |---|---|---|
 | A product's updates | none: generated once, then on its own | `copier update` brings the wiring's next change; `_skip_if_exists` keeps the product's own files |
-| Discoverability | the Databricks way; registrable in a workspace's UI | `uvx copier copy gh:kostavo-oss/vierlingh`; nothing in the workspace |
+| Discoverability | the Databricks way; registrable in a workspace's UI | `uvx copier copy gh:kostavo-oss/data-product-template`; nothing in the workspace |
 | What is rendered | every `.tmpl`, with Go's text/template: no loops to speak of, `missingkey=error`, and `{{ }}` that clashes with dbt's Jinja, GitHub's `${{ }}` and mise's own | only `.jinja` files, with Jinja: the clash is gone, conditional file names replace `{{ skip }}` |
 | Generating | needs credentials configured, though nothing here asks the workspace; the Databricks CLI on the machine | Python only; tests run copier in-process |
 | In the org | nothing else uses it | what every Kostavo tool is made from (`template-python`); one way of doing things |

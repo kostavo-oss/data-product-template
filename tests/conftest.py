@@ -35,7 +35,7 @@ BARE = {
 @pytest.fixture(scope="session")
 def template(tmp_path_factory) -> Path:
     """This working tree, as copier sees a template that is not a git repository."""
-    copy = tmp_path_factory.mktemp("template") / "vierlingh"
+    copy = tmp_path_factory.mktemp("template") / "data-product-template"
     shutil.copytree(
         REPO,
         copy,
