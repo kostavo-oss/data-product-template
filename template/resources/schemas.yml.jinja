@@ -10,9 +10,19 @@ resources:
       catalog_name: ${var.catalog}
       name: {{ package_name }}_raw_staging
       comment: dlt stages its merges through this schema. Nothing to read here.
-{%- if include_dbt %}
+{%- if include_dbt or include_stevin %}
     silver:
       catalog_name: ${var.catalog}
       name: {{ package_name }}
-      comment: Shaped by dbt from raw. What people query.
+      comment: Shaped {% if include_dbt %}by dbt {% endif %}from raw. What people query.
+{%- if include_stevin and include_access_examples %}
+      # Groups per schema, from stevin/security/README.md. The schema is the bundle's,
+      # so its grants stand here and not in a stevin spec. The two groups have to exist
+      # on the account: replace the names, then take the `#` away.
+      # grants:
+      #   - principal: data_engineers
+      #     privileges: [USE_SCHEMA, CREATE_TABLE, MODIFY, SELECT]
+      #   - principal: analysts
+      #     privileges: [USE_SCHEMA, SELECT]
+{%- endif %}
 {%- endif %}

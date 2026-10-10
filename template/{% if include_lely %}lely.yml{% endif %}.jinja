@@ -18,3 +18,11 @@ steps:
       vars:
         secret_scope: ${steps.scope.name}
 {%- endif %}
+{%- if include_stevin and not include_dbt %}
+
+  # The tables, after the bundle: the schemas are the bundle's and have to be there.
+  # ops/tables.py runs `stevin apply`, so the table is made before the job first runs.
+  # The plan shows this step as one run; `mise run tables:plan` shows what it would change.
+  - name: tables
+    uses: ./ops/tables.py:Tables
+{%- endif %}

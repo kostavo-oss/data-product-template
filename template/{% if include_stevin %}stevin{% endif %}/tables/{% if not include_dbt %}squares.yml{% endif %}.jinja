@@ -1,0 +1,32 @@
+# The table `squares`. stevin makes it and migrates it; the job's `transform` task fills
+# it (sql/squares.sql). Change the table here, never by hand on the workspace.
+{%- if include_contracts %}
+# The columns, their types, the key and the descriptions come from the contract: a change
+# to the shape is a change there. This file adds what a contract does not say.
+{%- endif %}
+table: ${catalog}.${resources.schemas.silver.name}.squares
+{%- if include_contracts %}
+from_contract: ../../contracts/output/squares/v1.odcs.yaml
+{%- else %}
+comment: Each number with its square and the root of that square.
+columns:
+  - name: id
+    type: bigint
+    nullable: false
+    comment: The number.
+  - name: square
+    type: bigint
+    comment: The number times itself.
+  - name: root
+    type: double
+    comment: The root of the square, which is the number again.
+constraints:
+  - primary_key: [id]
+{%- endif %}
+cluster_by: [id]
+tags:
+  product: {{ project_name }}
+# Who may read it. The group has to exist on the account before the plan runs.
+# grants:
+#   - principal: analysts
+#     privileges: [SELECT]

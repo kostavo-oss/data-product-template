@@ -37,10 +37,35 @@ Every rule comes with its reason. Keep a rule when the reason holds; say so when
 - **A contract under `contracts/input/` is never edited by hand.** It is a snapshot of
   another product's promise, written by `mise run contracts:pull`. An edit makes the
   check compare the producer with something the producer never said.
-- **The contract and the {% if include_dbt %}model{% else %}pipeline{% endif %} change in the same pull request.** A contract that
+- **The contract and the {% if include_dbt %}model{% elif include_stevin %}SQL that fills the table{% else %}pipeline{% endif %} change in the same pull request.** A contract that
   runs ahead of the table promises what is not there; one that lags hides what changed.
-  `mise run check` lints the contracts{% if not include_dbt %}, and `mise run contracts:test` tests the table
+  `mise run check` lints the contracts{% if not (include_dbt or include_stevin) %}, and `mise run contracts:test` tests the table
   `mise run dev` loaded{% endif %}.
+{%- endif %}
+{%- if include_stevin %}
+- **A table stevin owns is changed through its spec in `stevin/`, never by hand on the
+  workspace.** stevin compares the specs with what is there and plans the difference. A
+  column added by hand is drift on the next plan, and a table made by hand is one stevin
+  never claimed and will not migrate. `mise run tables:plan` shows a change before
+  `mise run tables:apply` makes it.
+{%- if include_dbt %}
+- **A table dbt builds takes no stevin spec: its grants and tags go in dbt's config.**
+  stevin refuses such a spec, at `mise run tables:validate` and at the plan. dbt replaces
+  the grants it does not list and recreates the table on a run, which drops what a second
+  writer set. `stevin/stevin.yml` says which tables are dbt's: a new model gets a line
+  there. stevin's are the tables dbt reads: the landed ones, governed and never shaped.
+{%- else %}
+- **A new table is a spec in `stevin/tables/` and a `.sql` file in `sql/`, with a task in
+  the job.** stevin makes the table at deploy and the task fills it. A `CREATE TABLE` in
+  the SQL makes a table stevin does not know, without the tags and grants of its spec.
+- **Never a schema name or a catalog in a `.sql` file.** The file takes them as
+  parameters (`IDENTIFIER(:catalog || '.' || :silver_schema || '.<table>')`), and the job
+  passes the names this target deployed. A name in the file is right in one target and
+  wrong in the others.
+{%- endif %}
+- **A schema is the bundle's, and takes no stevin spec.** `resources/schemas.yml` makes it
+  and grants on it. A spec names a schema as `${resources.schemas.<key>.name}`, never by
+  its name: a target may prefix it.
 {%- endif %}
 - **Run things through mise: `mise tasks` lists them.** `mise run dev` tries a pipeline
   here, in a local DuckDB file, with no workspace. `mise run check` is the gate before a

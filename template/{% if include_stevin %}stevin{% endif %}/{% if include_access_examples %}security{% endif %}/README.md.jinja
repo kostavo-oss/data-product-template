@@ -1,0 +1,125 @@
+# An access model to start from
+
+Three shapes that cover most of what a team needs, as files to edit. They are stevin's
+[access recipes](https://kostavo-oss.github.io/tools/stevin/access-recipes/), written for
+this product. They are a starting point, not a policy: who should see what is the team's
+to decide.
+
+**Replace these first. They are placeholders, and nothing here works with them.**
+
+| Placeholder | What it stands for | Where |
+|---|---|---|
+| `data_engineers`, `analysts` | the group that writes a schema and the group that reads it | `resources/schemas.yml`{% if include_dbt %}, `stevin/tables/numbers.yml`{% endif %} |
+| `sales_emea`, `sales_apac` | one group for each region | `region_members.yml` |
+| `sales_leads` | the group that sees every region | `region_members.yml`, `by_region.yml` |
+| `pii_readers` | the group that sees PII unmasked | the policy, below |
+| `pii` | the tag key that marks a PII column | `orders.yml`, the policy |
+
+**What stays hard, whatever the tool.**
+
+- Groups come from the identity provider, through SCIM to the account. stevin names a
+  group and cannot make one. A group a spec names has to exist before the plan runs.
+- A governed tag is an account admin's. A policy only matches a tag whose key an admin
+  defined at account level. A tag with any other key is a label.
+- A slow row filter slows every query on its table, for everyone, every time. Try the
+  function on the table's real size before a spec names it.
+- Nobody can run a query as another user. Ask one person from each group to run the
+  query before the go-live.
+
+## Switching it on
+
+The three specs in this folder are checked by `mise run check`. They are not planned or
+applied until `stevin/stevin.yml` lists the folder:
+
+```yaml
+specs:
+  - tables
+  - security
+```
+
+Then `mise run tables:plan` shows the function, the mapping table and the example table,
+and `mise run tables:apply` makes them.
+
+## Groups per schema
+
+Engineers write and analysts read, for a whole schema, and every new table gets it. A
+grant on a schema is inherited by every table in it.
+
+In this product the schemas are the bundle's, and stevin takes no spec for a schema the
+bundle declares: its plan refuses one. So the grants stand where the schema is made, in
+`resources/schemas.yml`, on the schema `silver`. They are there as comments. Replace the
+two group names and take the `#` away; the next deploy grants them.
+
+`USE CATALOG` on the catalog is still needed, and a catalog is neither stevin's nor this
+bundle's. Grant it once, in Terraform or by hand.
+
+## Rows by region
+
+A sales rep sees the orders of their region, and a lead sees every region. Three specs,
+one plan:
+
+- `region_members.yml` is a mapping table: which group belongs to which region. Its rows
+  are in the spec.
+- `by_region.yml` is the row-filter function. It reads the mapping table and asks
+  `is_account_group_member`, which is true for a direct or an indirect member of an
+  account group.
+- `orders.yml` is an example table whose `row_filter` names the function.
+
+stevin makes the function first, then the mapping table with its rows, then the table
+with the filter already on. It sets or replaces a filter and never removes one: remove
+it by hand, on purpose. A table with a filter is not rewritten by stevin.
+
+## PII by tag
+
+Every column tagged as PII, in every table of a schema, is masked for everyone but a
+few. Two parts, two owners.
+
+stevin tags the columns. `orders.yml` tags `customer_email` with `pii: email`.
+{%- if include_dbt %} A landed
+table takes the same tag in a spec without column types, like
+`stevin/tables/numbers.yml`: `columns: [{name: email, tags: {pii: email}}]`. A dbt model
+takes it in dbt's config.
+{%- endif %}
+
+One policy on the schema does the masking. stevin never writes a policy: it is written
+in Terraform or in SQL, once for each schema. Fill in the catalog, the schema and a
+masking function of your own. That function is not stevin's to make either: a function
+spec is only for a mask or a row filter that a spec names.
+
+```hcl
+resource "databricks_policy_info" "mask_pii" {
+  on_securable_type     = "SCHEMA"
+  on_securable_fullname = "<catalog>.<schema>"
+  name                  = "mask_pii"
+  policy_type           = "POLICY_TYPE_COLUMN_MASK"
+  for_securable_type    = "TABLE"
+  to_principals         = ["account users"]
+
+  match_columns = [{ condition = "hasTag('pii')", alias = "c" }]
+
+  column_mask = {
+    function_name = "<catalog>.<schema>.redact"
+    on_column     = "c"
+  }
+}
+```
+
+```sql
+CREATE POLICY mask_pii
+ON SCHEMA <catalog>.<schema>
+COLUMN MASK <catalog>.<schema>.redact
+TO `account users` EXCEPT pii_readers
+FOR TABLES
+MATCH COLUMNS has_tag('pii') AS c
+ON COLUMN c;
+```
+
+Creating a policy needs `MANAGE` on the schema and `EXECUTE` on the function. A mask on
+a table's column that the policy also masks is a conflict, and Databricks resolves a
+conflict by blocking access: pick one of the two.
+
+## What was tried
+
+`stevin validate` passes on these specs, with no workspace. Nothing here has been
+applied to a workspace by the template: not the row filter, not the tags, not the grants
+and not the policy. Try it on a dev target first.

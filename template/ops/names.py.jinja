@@ -27,7 +27,7 @@ schemas = json.loads(summary.stdout)["resources"]["schemas"]
 for variable, key in (
     ("RAW", "raw"),
     ("RAW_STAGING", "raw_staging"),
-{%- if include_dbt %}
+{%- if include_dbt or include_stevin %}
     ("SILVER", "silver"),
 {%- endif %}
 ):

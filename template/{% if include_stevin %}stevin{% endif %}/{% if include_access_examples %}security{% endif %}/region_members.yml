@@ -1,0 +1,16 @@
+# Rows by region, 1 of 3: who belongs where. One row for each group and region; the
+# row filter (by_region.yml) reads it on every query, so keep it small.
+# `sales_emea`, `sales_apac` and `sales_leads` are placeholders for account groups.
+table: ${catalog}.${resources.schemas.silver.name}.region_members
+comment: Which account groups may see which region's rows
+columns:
+  - {name: region, type: string, nullable: false}
+  - {name: group_name, type: string, nullable: false}
+constraints:
+  - primary_key: [region, group_name]
+# The rows are the table's whole content: an apply replaces what is there with these.
+seed:
+  - {region: EMEA, group_name: sales_emea}
+  - {region: APAC, group_name: sales_apac}
+grants:
+  - {principal: sales_leads, privileges: [SELECT, MODIFY]}

@@ -1,0 +1,12 @@
+# The landed table `numbers`. dlt makes it and owns its shape, so this spec names no
+# column types: it only governs. stevin lays it over the table that is there and changes
+# tags and grants, nothing else. The table has to be there first: run the job once before
+# the first `mise run tables:apply`.
+table: ${catalog}.${resources.schemas.raw.name}.numbers
+tags:
+  source: example
+grants:
+  # A placeholder. The group has to exist on the account before the plan runs: replace
+  # it with one of your own. stevin names groups and cannot make them.
+  - principal: data_engineers
+    privileges: [SELECT]

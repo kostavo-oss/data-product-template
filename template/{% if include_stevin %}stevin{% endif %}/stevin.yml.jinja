@@ -1,0 +1,39 @@
+# stevin: plan and apply for the tables and the access {% if include_dbt %}that dbt does not own{% else %}of this product{% endif %}.
+# https://kostavo-oss.github.io/tools/stevin/
+#
+#   mise run tables:validate    the specs, checked here, with no workspace
+#   mise run tables:plan        what would change on the target; changes nothing
+#   mise run tables:apply       the plan, shown, and run after a yes
+#   mise run tables:drift       does the target still match the specs
+version: 1
+
+# The folders with the specs, from this file.
+specs:
+  - tables
+{%- if include_access_examples %}
+  # The access examples are checked by `mise run check` and planned only when this line
+  # is on. Replace their group names first: security/README.md.
+  # - security
+{%- endif %}
+
+# The targets, the workspaces and the variables are the bundle's: there is no second list
+# here. `${catalog}` in a spec is the bundle's variable, and
+# `${resources.schemas.<key>.name}` is a schema under the name the target deploys it with.
+# The schemas are the bundle's too (resources/schemas.yml): stevin makes none and takes no
+# spec for one.
+bundle: ../databricks.yml
+{%- if include_dbt %}
+
+# Whose tables are whose. dlt lands `numbers`, so its spec may govern it and never shape
+# it. dbt builds `squares`, so it takes no spec at all: its grants and tags go in dbt's
+# config. A new dbt model gets a line here.
+# The schema part is `*`: a target may prefix a schema's name, and a key here cannot take
+# `${resources.schemas.<key>.name}`: stevin reads a key as three parts between
+# dots.
+owned_elsewhere:
+  ${catalog}.*.numbers: dlt
+  ${catalog}.*.squares: dbt
+{%- endif %}
+
+# No `history_schema`: an apply is not recorded and takes no lock. What one gives, and
+# how to name it: https://kostavo-oss.github.io/tools/stevin/spec/#the-project-file
