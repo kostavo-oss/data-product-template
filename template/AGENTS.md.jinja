@@ -28,6 +28,20 @@ Every rule comes with its reason. Keep a rule when the reason holds; say so when
   deploy is written the same way: a class, `uv run ops/<step>.py --help`, then a line in
   `lely.yml`.
 {%- endif %}
+{%- if include_contracts %}
+- **An output contract (`contracts/output/<port>/v<N>.odcs.yaml`) is a promise: a breaking
+  change is a new version file, `v<N+1>.odcs.yaml`, with its own entry in
+  `dataproduct.yaml`, and never an edit.** Other products read the table by what the
+  contract says, and nobody tells them when it changes. CI compares the file with the base
+  branch and refuses a breaking edit; a new file always passes.
+- **A contract under `contracts/input/` is never edited by hand.** It is a snapshot of
+  another product's promise, written by `mise run contracts:pull`. An edit makes the
+  check compare the producer with something the producer never said.
+- **The contract and the {% if include_dbt %}model{% else %}pipeline{% endif %} change in the same pull request.** A contract that
+  runs ahead of the table promises what is not there; one that lags hides what changed.
+  `mise run check` lints the contracts{% if not include_dbt %}, and `mise run contracts:test` tests the table
+  `mise run dev` loaded{% endif %}.
+{%- endif %}
 - **Run things through mise: `mise tasks` lists them.** `mise run dev` tries a pipeline
   here, in a local DuckDB file, with no workspace. `mise run check` is the gate before a
   commit. `mise run ingest -- <pipeline>` and `mise run job` use the dev target on the

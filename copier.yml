@@ -16,6 +16,8 @@ _skip_if_exists:
   - .dlt/config.toml
   - "src/**"
   - "dbt/models/**"
+  - dataproduct.yaml
+  - "contracts/**"
 
 _message_after_copy: |
   {{ project_name }} is written. Next:
@@ -76,4 +78,9 @@ include_lely:
 include_caland:
   type: bool
   help: Keep the secrets with caland, from a mise task
+  default: true
+
+include_contracts:
+  type: bool
+  help: Say what the product promises in a data contract, checked on every pull request
   default: true

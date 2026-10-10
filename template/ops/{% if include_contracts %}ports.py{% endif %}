@@ -1,0 +1,287 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["pyyaml>=6"]
+# ///
+"""The product's ports and their contracts: `uv run ops/ports.py <verb>`.
+
+`dataproduct.yaml` lists the ports. Every port names a contract, and a contract is a file:
+`contracts/output/<port>/v<N>.odcs.yaml` is a promise this product makes, and
+`contracts/input/<port>/v<N>.odcs.yaml` is a snapshot of a promise it reads. The Data
+Contract CLI does the work, as a pinned command; this file only knows where things are.
+
+    lint                    every contract is valid, and every output port has its own
+    test [--server NAME]    every output contract against the data (default: local)
+    pull                    fetch every input port's contract and keep it as a snapshot
+    check [--server NAME]   before a run: is what is read still what was pulled
+    breaking --base REF     before a merge: no breaking edit to a contract that is out
+    catalog                 the contracts as pages, in site/contracts/
+    dbt [--dry-run]         columns and tests from the output contracts into dbt/
+
+Exit codes: 0 fine, 1 could not run, 2 refused. `lint`, `test`, `catalog` and `dbt` hand
+on what the CLI says, and the CLI says 1 for a contract that fails.
+"""
+
+import argparse
+import subprocess
+import sys
+import tempfile
+import urllib.request
+from pathlib import Path
+
+import yaml
+
+# The Data Contract CLI, pinned. Its version and extras are changed here and nowhere else.
+CLI = ["uvx", "--from", "datacontract-cli[duckdb,databricks]==1.2.4", "datacontract"]
+
+ROOT = Path(__file__).resolve().parent.parent
+FINE, COULD_NOT_RUN, REFUSED = 0, 1, 2
+
+
+class Stop(Exception):
+    """A sentence for the reader, and the exit code that goes with it."""
+
+    def __init__(self, sentence: str, code: int = REFUSED):
+        super().__init__(sentence)
+        self.code = code
+
+
+def ports(direction: str) -> list[dict]:
+    """The input or the output ports of dataproduct.yaml."""
+    try:
+        text = (ROOT / "dataproduct.yaml").read_bytes()
+    except OSError as error:
+        raise Stop(f"dataproduct.yaml: {error}", COULD_NOT_RUN) from None
+    return document(text, "dataproduct.yaml").get(f"{direction}Ports") or []
+
+
+def document(text: bytes, where: str) -> dict:
+    """A product file or a contract, read; or a sentence saying it is neither."""
+    try:
+        read = yaml.safe_load(text)
+    except yaml.YAMLError as error:
+        raise Stop(f"{where} is not YAML: {error}", COULD_NOT_RUN) from None
+    if not isinstance(read, dict):
+        raise Stop(f"{where} is not a product file or a contract", COULD_NOT_RUN)
+    return read
+
+
+def contract(direction: str, port: dict) -> Path:
+    """Where a port's contract is kept.
+
+    ODPS lets a port leave out its contract and its version. A port like that names
+    nothing to fetch, test or compare, so it is refused.
+    """
+    reasons = {
+        "contractId": "there is nothing to fetch or test",
+        "version": "its contract file has no name without one",
+    }
+    for field, reason in reasons.items():
+        if not port.get(field):
+            raise Stop(f"the {direction} port {port['name']} has no {field}: {reason}")
+    major = str(port["version"]).lstrip("v").split(".")[0]
+    return ROOT / "contracts" / direction / port["name"] / f"v{major}.odcs.yaml"
+
+
+def shown(path: Path) -> str:
+    return path.relative_to(ROOT).as_posix()
+
+
+def address(port: dict, kind: str) -> str | None:
+    """The URL or path a port gives under `authoritativeDefinitions`, by its type."""
+    for definition in port.get("authoritativeDefinitions") or []:
+        if definition.get("type") == kind:
+            return definition.get("url")
+    return None
+
+
+def fetch(location: str) -> bytes:
+    """What is at a URL, or at a path seen from the product's folder."""
+    try:
+        if location.startswith(("http://", "https://")):
+            with urllib.request.urlopen(location, timeout=30) as answer:
+                return answer.read()
+        return (ROOT / location).read_bytes()
+    except OSError as error:
+        raise Stop(f"{location} could not be read: {error}", COULD_NOT_RUN) from None
+
+
+def cli(*words: str) -> int:
+    return subprocess.run([*CLI, *words], cwd=ROOT, check=False).returncode
+
+
+def compare(before: bytes, after: bytes) -> str:
+    """What the CLI's `breaking` says of a change: same, compatible or breaking."""
+    if before == after:
+        return "same"
+    with tempfile.TemporaryDirectory() as folder:
+        Path(folder, "before.yaml").write_bytes(before)
+        Path(folder, "after.yaml").write_bytes(after)
+        command = [*CLI, "breaking", "before.yaml", "after.yaml"]
+        done = subprocess.run(
+            command, cwd=folder, capture_output=True, text=True, check=False
+        )
+    print(done.stdout, end="")
+    if done.returncode == 0:
+        return "compatible"
+    # The CLI exits 1 for a breaking change and also for a file it could not read. Only
+    # a comparison that was made prints its table, under the word "Details".
+    if "Details" in done.stdout.splitlines():
+        return "breaking"
+    said = (done.stdout + done.stderr).strip()
+    raise Stop(f"the comparison could not be made: {said}", COULD_NOT_RUN)
+
+
+def lint(args) -> int:
+    failed = 0
+    for path in sorted((ROOT / "contracts").rglob("*.odcs.yaml")):
+        failed += cli("lint", shown(path)) != 0
+    for port in ports("output"):
+        path = contract("output", port)
+        if not path.exists():
+            raise Stop(f"the output port {port['name']} has no contract: {shown(path)}")
+        if document(path.read_bytes(), shown(path)).get("id") != port["contractId"]:
+            raise Stop(f"{shown(path)}: its id is not the port's contractId")
+    return COULD_NOT_RUN if failed else FINE
+
+
+def test(args) -> int:
+    failed = 0
+    for port in ports("output"):
+        path = shown(contract("output", port))
+        failed += cli("test", path, "--server", args.server) != 0
+    return COULD_NOT_RUN if failed else FINE
+
+
+def pull(args) -> int:
+    for port in ports("input"):
+        name, path = port["name"], contract("input", port)
+        where = address(port, "dataContract")
+        if not where:
+            raise Stop(
+                f"the input port {name} gives no address for its contract: "
+                "add an authoritativeDefinitions entry of type dataContract"
+            )
+        text = fetch(where)
+        if document(text, where).get("id") != port["contractId"]:
+            raise Stop(f"{where} is not the contract {port['contractId']}")
+        same = path.exists() and path.read_bytes() == text
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(text)
+        state = "unchanged" if same else "written"
+        print(f"{name}: {shown(path)} {state}, from {where}")
+    return FINE
+
+
+def check_port(port: dict, server: str | None) -> None:
+    name, version = port["name"], port.get("version")
+    snapshot = contract("input", port)
+    if not snapshot.exists():
+        pull_it = "run `uv run ops/ports.py pull`"
+        raise Stop(f"no snapshot at {shown(snapshot)}: {pull_it}", COULD_NOT_RUN)
+    where = address(port, "dataContract")
+    if not where:
+        raise Stop("the port gives no address for its contract", COULD_NOT_RUN)
+
+    # Does the producer still serve this version? Asked first: a version that is gone
+    # usually took its contract file with it, and "gone" says more than "not found".
+    product = address(port, "dataProduct")
+    if product:
+        theirs = [
+            p
+            for p in document(fetch(product), product).get("outputPorts") or []
+            if p.get("contractId") == port["contractId"]
+            and str(p.get("version")) == str(version)
+        ]
+        if not theirs:
+            raise Stop(f"the producer no longer lists version {version} in {product}")
+        if theirs[0].get("deprecated"):
+            print(f"{name}: warning: the producer marks version {version} deprecated")
+
+    # Is the producer's contract still the one that was pulled?
+    change = compare(snapshot.read_bytes(), fetch(where))
+    if change == "breaking":
+        raise Stop(f"the contract at {where} no longer keeps what was pulled")
+    if change == "compatible":
+        print(f"{name}: warning: the producer changed the contract; `pull` takes it")
+
+    # Does the data keep it now? Only when a server is named.
+    if server and cli("test", shown(snapshot), "--server", server) != 0:
+        raise Stop(f"the test of {shown(snapshot)} on server {server} did not pass")
+    print(f"{name}: fine")
+
+
+def check(args) -> int:
+    codes = []
+    for port in ports("input"):  # every port is checked, so one run says everything
+        try:
+            check_port(port, args.server)
+        except Stop as stop:
+            print(f"{port['name']}: {stop}", file=sys.stderr)
+            codes.append(stop.code)
+    return REFUSED if REFUSED in codes else COULD_NOT_RUN if codes else FINE
+
+
+def git(*words: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *words], cwd=ROOT, capture_output=True, check=False)
+
+
+def breaking(args) -> int:
+    if git("rev-parse", "--verify", "--quiet", args.base + "^{commit}").returncode != 0:
+        raise Stop(f"git does not know {args.base} here: fetch it", COULD_NOT_RUN)
+    refused = 0
+    for path in sorted((ROOT / "contracts" / "output").glob("*/v*.odcs.yaml")):
+        base = git("show", f"{args.base}:./{shown(path)}")
+        if base.returncode != 0:
+            print(f"{shown(path)}: new")
+            continue
+        change = compare(base.stdout, path.read_bytes())
+        print(f"{shown(path)}: {change}")
+        if change == "breaking":
+            following = int(path.name.split(".")[0].lstrip("v")) + 1
+            print(
+                f"{shown(path)}: a breaking change needs a new version, "
+                f"v{following}.odcs.yaml beside it: a published version is not edited.",
+                file=sys.stderr,
+            )
+            refused += 1
+    return REFUSED if refused else FINE
+
+
+def catalog(args) -> int:
+    files = "contracts/**/*.odcs.yaml"
+    return cli("catalog", "--files", files, "--output", "site/contracts/")
+
+
+def dbt(args) -> int:
+    if not (ROOT / "dbt" / "dbt_project.yml").exists():
+        raise Stop("there is no dbt project in dbt/ to write to", COULD_NOT_RUN)
+    contracts = [shown(contract("output", port)) for port in ports("output")]
+    dry = ["--dry-run"] if args.dry_run else []
+    return cli("dbt", "sync", *contracts, "--project-dir", "dbt", *dry)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="The product's ports and contracts.")
+    verbs = parser.add_subparsers(dest="verb", required=True)
+    for verb, run in (("lint", lint), ("pull", pull), ("catalog", catalog)):
+        verbs.add_parser(verb).set_defaults(run=run)
+    for verb, run, default in (("test", test, "local"), ("check", check, None)):
+        served = verbs.add_parser(verb)
+        served.add_argument("--server", default=default, help="the contract's server")
+        served.set_defaults(run=run)
+    against = verbs.add_parser("breaking")
+    against.add_argument("--base", required=True, help="the git ref to compare with")
+    against.set_defaults(run=breaking)
+    sync = verbs.add_parser("dbt")
+    sync.add_argument("--dry-run", action="store_true", help="show, and write nothing")
+    sync.set_defaults(run=dbt)
+    args = parser.parse_args()
+    try:
+        return args.run(args)
+    except Stop as stop:
+        print(stop, file=sys.stderr)
+        return stop.code
+
+
+if __name__ == "__main__":
+    sys.exit(main())

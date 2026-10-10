@@ -1,0 +1,47 @@
+# What the output port `numbers` promises, in the Open Data Contract Standard (ODCS
+# v3.2.0, from Bitol). It describes the table the example pipeline loads.
+#
+# A promise: change it together with the pipeline, in one pull request. A change that
+# breaks a reader (a column removed, a type changed) is a new file, v2.odcs.yaml, and a
+# second entry for the port in dataproduct.yaml. CI refuses a breaking edit to this file.
+apiVersion: v3.2.0
+kind: DataContract
+id: {{ project_name }}.numbers
+name: numbers
+version: 1.0.0
+status: draft
+description:
+  purpose: Numbers and their squares, as the example pipeline loads them.
+
+schema:
+  - name: numbers
+    physicalType: table
+    description: Numbers and their squares.
+    properties:
+      - name: id
+        description: The number.
+        logicalType: integer
+        physicalType: bigint
+        required: true
+        unique: true
+        primaryKey: true
+        primaryKeyPosition: 1
+      - name: square
+        description: The number times itself.
+        logicalType: integer
+        physicalType: bigint
+
+# Where the table is. `local` is the file `mise run dev` writes. `databricks` is the
+# deployed table: its names differ per target, so they are variables. The Data Contract
+# CLI fills them from the environment, and uses what stands after `:-` when a variable is
+# not set. Those are the names of the prod target. `uv run python ops/names.py` prints RAW
+# for a target.
+servers:
+  - server: local
+    type: duckdb
+    database: example.duckdb
+    schema: example_dataset
+  - server: databricks
+    type: databricks
+    catalog: ${CATALOG:-{{ catalog }}}
+    schema: ${RAW:-{{ package_name }}_raw}

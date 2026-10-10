@@ -1,0 +1,46 @@
+# What the output port `squares` promises, in the Open Data Contract Standard (ODCS
+# v3.2.0, from Bitol). It describes the dbt model dbt/models/squares.sql.
+#
+# A promise: change it together with the model, in one pull request. A change that breaks
+# a reader (a column removed, a type changed) is a new file, v2.odcs.yaml, and a second
+# entry for the port in dataproduct.yaml. CI refuses a breaking edit to this file.
+apiVersion: v3.2.0
+kind: DataContract
+id: {{ project_name }}.squares
+name: squares
+version: 1.0.0
+status: draft
+description:
+  purpose: Each number with its square and the root of that square.
+
+schema:
+  - name: squares
+    physicalType: table
+    description: Each number with its square and the root of that square.
+    properties:
+      - name: id
+        description: The number.
+        logicalType: integer
+        physicalType: bigint
+        required: true
+        unique: true
+        primaryKey: true
+        primaryKeyPosition: 1
+      - name: square
+        description: The number times itself.
+        logicalType: integer
+        physicalType: bigint
+      - name: root
+        description: The root of the square, which is the number again.
+        logicalType: number
+        physicalType: double
+
+# Where the table is. A dbt model is built on the workspace only, so there is one server.
+# The names differ per target, so they are variables: the Data Contract CLI fills them from
+# the environment, and uses what stands after `:-` when a variable is not set. Those are
+# the names of the prod target. `uv run python ops/names.py` prints SILVER for a target.
+servers:
+  - server: databricks
+    type: databricks
+    catalog: ${CATALOG:-{{ catalog }}}
+    schema: ${SILVER:-{{ package_name }}}

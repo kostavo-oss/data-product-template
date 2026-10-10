@@ -20,6 +20,7 @@ FULL = {
     "include_dbt": True,
     "include_lely": True,
     "include_caland": True,
+    "include_contracts": True,
 }
 BARE = {
     "project_name": "bare",
@@ -29,6 +30,7 @@ BARE = {
     "include_dbt": False,
     "include_lely": False,
     "include_caland": False,
+    "include_contracts": False,
 }
 
 
@@ -67,6 +69,7 @@ LEFT_BY_RUNS = (
     "dbt/logs/",
     "dbt/dbt_packages/",
     "example.duckdb",
+    "site/",
 )
 
 

@@ -28,13 +28,16 @@ description = "Run the example pipeline into a local DuckDB file"
 run = "uv run ingest run example"
 
 [tasks.check]
-description = "The gate before a commit: lint, format, the pipelines import{% if include_dbt %}, dbt parses{% endif %}"
+description = "The gate before a commit: lint, format, the pipelines import{% if include_dbt %}, dbt parses{% endif %}{% if include_contracts %}, the contracts are valid{% endif %}"
 run = [
   "uv run ruff check .",
   "uv run ruff format --check .",
   "uv run ingest list",
 {%- if include_dbt %}
   "uv run --group dev dbt parse --project-dir dbt --profiles-dir dbt --target parse --vars '{raw_schema: parse}'",
+{%- endif %}
+{%- if include_contracts %}
+  "uv run ops/ports.py lint",
 {%- endif %}
 ]
 
@@ -44,7 +47,41 @@ run = ["uv run ruff check --fix .", "uv run ruff format ."]
 
 [tasks.clean]
 description = "Remove what runs and builds leave behind"
-run = "rm -rf dist *.duckdb *.duckdb.wal .ruff_cache dbt/target dbt/dbt_packages dbt/logs"
+run = "rm -rf dist site *.duckdb *.duckdb.wal .ruff_cache dbt/target dbt/dbt_packages dbt/logs"
+{%- if include_contracts %}
+
+# ── contracts: what the product promises and what it reads ────────────────────
+# ops/ports.py reads the ports from dataproduct.yaml and runs the Data Contract CLI, at
+# the version it names. No workspace needed, and no account anywhere.
+
+[tasks."contracts:lint"]
+description = "Check that every contract is valid and every output port has its own"
+run = "uv run ops/ports.py lint"
+{%- if not include_dbt %}
+
+[tasks."contracts:test"]
+description = "Test the output contracts against the local DuckDB file (after: mise run dev)"
+run = "uv run ops/ports.py test"
+{%- endif %}
+
+[tasks."contracts:pull"]
+description = "Fetch every input port's contract and keep it as a snapshot in contracts/input/"
+run = "uv run ops/ports.py pull"
+
+[tasks."contracts:check"]
+description = "Before a run: is what the input ports read still what was pulled"
+run = "uv run ops/ports.py check"
+
+[tasks."contracts:catalog"]
+description = "Write the contracts as pages into site/contracts/"
+run = "uv run ops/ports.py catalog"
+{%- if include_dbt %}
+
+[tasks."contracts:dbt"]
+description = "Write columns and tests from the output contracts into dbt/models/"
+run = "uv run ops/ports.py dbt"
+{%- endif %}
+{%- endif %}
 
 # ── the dev target on your workspace ──────────────────────────────────────────
 
