@@ -62,7 +62,8 @@ does it after you have looked; `mise run destroy` takes the target down again. O
 the same happens on every pull request (`.github/workflows/plan.yml` posts the plan as a
 comment) and on merge (`apply.yml` applies the plan that was reviewed, not a new one). The
 repository needs `DATABRICKS_HOST` and `WAREHOUSE_ID` as variables and `DATABRICKS_TOKEN`
-as a secret.
+as a secret. The first push to `main` shows a failed `apply`, because `apply` only applies
+a plan that was reviewed on a pull request; the first pull request puts that right.
 
 `databricks bundle deploy -t prod` works without lely; lely adds the plan and the review.
 {%- endif %}

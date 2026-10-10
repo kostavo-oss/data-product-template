@@ -126,15 +126,41 @@ profile. Everything made was removed afterwards.
 | `bundle destroy` | yes |
 | The scope step (`ops/scope.py`) generated and run on its own, and under lely with the bundle | yes (2026-10-08, lely 0.3.0): `plan`, `apply` made the scope, `status` listed it, `lely plan -t dev` wired `secret_scope = … ← scope.name` into the bundle, `destroy` removed it |
 | The job's `ingest` task | **not run**: it needs leeghwater from PyPI, and this workspace's serverless compute refuses dlt's upload to storage (known from leeghwater's own run) |
-| `mise install` and the tasks through mise itself | **not run**: the task commands were run by hand; mise would also have installed tools on this machine |
+| `mise install` and the tasks through mise itself | **not run** that day: the task commands were run by hand; mise would also have installed tools on this machine. `mise install`, `check` and `dev` held on a GitHub runner on 2026-10-10 (below) |
 | caland from the `secrets` task | **not run**: it opens a page in a browser |
-| The GitHub workflows | **not run**: the product was not a repository on GitHub |
+| The GitHub workflows | **not run** that day: the product was not a repository on GitHub. They held on 2026-10-10 (below) |
 
 **Found and fixed while trying:** YAML reads `dbt build --vars '{raw_schema: …}'` as a
 mapping unless the command is quoted whole; dbt-databricks wants the host without its
 scheme; a `{{ config(...) }}` inside a SQL comment is read by dbt and set the model to a
 view; `databricks auth env` is deprecated and prints a warning first, so the dbt sign-in
 goes through the SDK instead; `databricks auth token` only serves OAuth profiles.
+
+### On GitHub, from a repository
+
+On 2026-10-10, one run, on one private repository made from the template at commit
+`95da290` with `uvx copier copy --defaults`: the catalog `workspace`, a warehouse id, with
+dbt, lely, caland and contracts. Nothing was edited by hand; `uv lock` added the lock
+file. The repository had `DATABRICKS_HOST` and `WAREHOUSE_ID` as variables and
+`DATABRICKS_TOKEN` as a secret, for the test workspace. Everything made was removed
+afterwards.
+
+| What | Held? |
+|---|---|
+| `ci` on the first push to `main`, on a clean GitHub runner: `jdx/mise-action` installed the tools as listed, then `uv sync --locked`, `mise run check` (with the contracts lint) and `mise run dev` (the example into a local DuckDB file) | yes |
+| `apply` on the first push to `main` | failed, as designed, at "Fetch the plan that was reviewed": `This commit came from no pull request: no plan was reviewed.` It is a red cross on a new product's first day; the product's README now says so |
+| `plan` on a pull request: `lely plan -t dev -o plan.json --github` (lely 0.3.0), the plan posted as a comment on the pull request | yes: `4 changes · 1 run · 0 destructive`: create `jobs.data_product_proof`, `schemas.raw`, `schemas.raw_staging`, `schemas.silver`, and the upload of the bundle's files. `ci` passed on the same pull request |
+| `apply` on the merge (squash): it found the pull request of the merge commit, downloaded the plan artifact made for its last commit, and ran `lely apply plan.json --yes --github -o result.json` | yes: the dev target was deployed to the test workspace from the reviewed plan, not from a new one |
+| The CI gate on a second pull request that removed the column `root` from `contracts/output/squares/v1.odcs.yaml` | yes: `ci` failed at "No breaking change to a published contract" with exit code 2 and `contracts/output/squares/v1.odcs.yaml: a breaking change needs a new version, v2.odcs.yaml beside it: a published version is not edited.`, under the Data Contract CLI's table naming `schema.squares.properties.root` as removed. Closed without merging |
+| Taking the target down, from a hand-started workflow that is the repository's own and not part of the template: `lely plan -t dev --destroy -o destroy.json`, then `lely destroy destroy.json -t dev --yes` | yes: `4 changes · 0 runs · 4 destructive`, the job and the three schemas deleted. Nothing was left on the workspace |
+| The job itself (`mise run job`) | **not run**: its `ingest` task still cannot finish on the test workspace, whose serverless compute is refused the connection to the storage endpoint dlt uploads to |
+| caland from the `secrets` task | **not run** |
+| The `prod` target | **not run** |
+
+**Found and fixed in this run:** the product's `.gitignore` did not ignore `.env`. The
+Data Contract CLI loads a `.env` file, walking up the directories, and a developer puts a
+token there. In the repository that file showed as untracked, one careless `git add` from
+being published. `.env` and `.env.*` are now ignored.
 
 ## Contracts between products
 
@@ -396,11 +422,12 @@ in a number and an empty key. It also runs the three refusals of the verb.
   are one `json` column and are not held. Nothing says that a schema file is older than
   its snapshot: `pull` does not write it. `dlt pipeline <name> abort-packages` was not
   answered from a script.
-- **The CI gate on GitHub.** The command the workflow runs was run in a local repository.
-  The workflow itself has not run: no product is a repository on GitHub yet (Still open,
-  2).
-- **The `contracts:*` tasks through mise itself.** As with every other task, the commands
-  were run by hand (Tried on a workspace, `mise install`).
+- **The CI gate on GitHub, for more than one case.** It refused a removed column on a
+  pull request on 2026-10-10 (Tried on a workspace, On GitHub). A new version file and a
+  compatible edit were seen to pass in a local repository only.
+- **The `contracts:*` tasks through mise itself.** The lint ran through mise as part of
+  `mise run check`, on a GitHub runner on 2026-10-10. The other tasks' commands were run
+  by hand.
 - **A local test for a product with dbt.** It would take the model in DuckDB, which is
   the local dbt loop that was decided against.
 - **A contract kept in a private repository.** `pull` and `check` fetch a URL without
@@ -409,7 +436,16 @@ in a number and an empty key. It also runs the three refusals of the verb.
 ## Still open
 
 1. **The job's `ingest` task, end to end,** on a workspace whose serverless compute can
-   reach its storage.
-2. **A product as a GitHub repository,** to see the plan and apply workflows run.
-3. **`mise install` on a clean machine,** to see the tools arrive as listed.
-4. **A release**, after the above, on the owner's word.
+   reach its storage. The job was not started in the run of 2026-10-10.
+   [#4](https://github.com/kostavo-oss/data-product-template/issues/4)
+2. **caland from the `secrets` task.**
+3. **The `prod` target.** Only the dev target has been deployed, from a laptop and from
+   the workflows.
+4. **The tasks through mise, other than `check` and `dev`.** Those two ran on a GitHub
+   runner after `jdx/mise-action` installed the tools; the others' commands were run by
+   hand, or by the workflows without mise.
+5. **A release**, after the above, on the owner's word.
+
+No longer open since 2026-10-10: a product as a GitHub repository, with the plan and
+apply workflows run once (one repository, one pull request, one merge), and `mise install`
+on a clean machine, seen on a GitHub runner.
