@@ -46,6 +46,7 @@ def _run(project: Path, *words: str, env: dict[str, str] | None = None):
 
 
 def test_the_pipelines_import_and_are_listed(synced):
+    # Holds DLT-1.
     done = _run(synced, "ingest", "list")
 
     assert done.returncode == 0, done.stderr
@@ -53,6 +54,7 @@ def test_the_pipelines_import_and_are_listed(synced):
 
 
 def test_dbt_parses_the_models(synced):
+    # Holds DBT-1, DBT-2.
     done = _run(
         synced,
         "--group",
@@ -73,6 +75,7 @@ def test_dbt_parses_the_models(synced):
 
 
 def test_dbt_resolves_the_example_model_as_a_table(synced):
+    # Holds DBT-2, DBT-3.
     done = _run(
         synced,
         "--group",
@@ -98,6 +101,7 @@ def test_dbt_resolves_the_example_model_as_a_table(synced):
 
 
 def test_the_example_runs_here_into_duckdb(synced, tmp_path):
+    # Holds DLT-2.
     done = _run(
         synced,
         "ingest",
@@ -114,6 +118,7 @@ def test_the_example_runs_here_into_duckdb(synced, tmp_path):
 
 
 def test_the_names_script_says_what_is_missing(synced):
+    # Holds TSK-4.
     done = _run(
         synced,
         "python",
@@ -128,6 +133,7 @@ def test_the_names_script_says_what_is_missing(synced):
 def test_the_scope_step_runs_on_its_own(full: Path):
     """`uv run ops/scope.py --help` resolves lely from PyPI (0.3 or newer) and shows the
     step's commands: the step is a command of its own before any workspace is reached."""
+    # Holds SEC-1.
     done = subprocess.run(
         [uv(), "run", "ops/scope.py", "--help"], cwd=full, capture_output=True, text=True
     )

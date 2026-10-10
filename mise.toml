@@ -6,7 +6,7 @@ uv = "latest"
 UV_PROJECT_ENVIRONMENT = ".venv"
 
 [tasks.test]
-description = "Generate the full and the bare answers with copier and try what it wrote"
+description = "Generate products with copier and try what it wrote"
 alias = "t"
 run = "uv run pytest"
 

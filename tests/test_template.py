@@ -2,6 +2,7 @@
 
 import subprocess
 import sys
+import tomllib
 
 import pytest
 import yaml
@@ -32,6 +33,7 @@ ALWAYS = {
 
 
 def test_the_full_answers_write_everything(full):
+    # Holds GEN-1.
     written = files(full)
 
     assert written >= ALWAYS
@@ -43,6 +45,7 @@ def test_the_full_answers_write_everything(full):
 
 
 def test_the_bare_answers_skip_what_was_not_wanted(bare):
+    # Holds GEN-5, TSK-1, TSK-2, SEC-3.
     written = files(bare)
 
     assert written >= ALWAYS
@@ -58,6 +61,7 @@ def test_the_bare_answers_skip_what_was_not_wanted(bare):
 
 def test_no_template_syntax_survives(full, bare):
     """What has `{{` left is dbt's Jinja or GitHub's own, in files that are theirs."""
+    # Holds GEN-4.
     theirs = ("dbt/", ".github/workflows/")
     for project in (full, bare):
         for path in files(project):
@@ -69,6 +73,7 @@ def test_no_template_syntax_survives(full, bare):
 
 
 def test_the_package_name_is_derived_from_the_project_name(full):
+    # Holds GEN-2, GEN-3, DLT-1.
     assert (full / "src/shop_data").is_dir()
     assert "package_name: shop_data" in (full / ".copier-answers.yml").read_text()
     assert 'name = "shop-data"' in (full / "pyproject.toml").read_text()
@@ -77,6 +82,7 @@ def test_the_package_name_is_derived_from_the_project_name(full):
 
 
 def test_the_job_is_told_the_bundles_schema_names_by_reference(full):
+    # Holds BND-2, BND-3, BND-4, SEC-2.
     job = yaml.safe_load((full / "resources/shop-data.job.yml").read_text())
     tasks = {t["task_key"]: t for t in job["resources"]["jobs"]["shop_data"]["tasks"]}
     words = tasks["ingest"]["python_wheel_task"]["parameters"]
@@ -100,6 +106,7 @@ def test_the_job_is_told_the_bundles_schema_names_by_reference(full):
 
 
 def test_the_schemas_are_bundle_resources(full, bare):
+    # Holds BND-1.
     schemas = yaml.safe_load((full / "resources/schemas.yml").read_text())
     assert set(schemas["resources"]["schemas"]) == {"raw", "raw_staging", "silver"}
 
@@ -108,6 +115,7 @@ def test_the_schemas_are_bundle_resources(full, bare):
 
 
 def test_the_warehouse_has_a_default_only_when_one_was_given(full, bare):
+    # Holds BND-5.
     with_ = yaml.safe_load((full / "databricks.yml").read_text())["variables"]
     without = yaml.safe_load((bare / "databricks.yml").read_text())["variables"]
 
@@ -117,12 +125,14 @@ def test_the_warehouse_has_a_default_only_when_one_was_given(full, bare):
 
 
 def test_every_yaml_file_parses(full):
+    # Holds GEN-8.
     for path in files(full):
         if path.endswith((".yml", ".yaml")):
             yaml.safe_load((full / path).read_text())
 
 
 def test_the_python_passes_the_linter(full, bare):
+    # Holds GEN-8.
     for project in (full, bare):
         done = subprocess.run(
             [sys.executable, "-m", "ruff", "check", "--isolated", str(project)],
@@ -148,12 +158,14 @@ def test_the_python_passes_the_linter(full, bare):
 
 @pytest.mark.parametrize("name", ["1st", "my product", "x/y"])
 def test_a_name_that_cannot_be_a_project_is_refused(template, tmp_path, name):
+    # Holds GEN-3.
     with pytest.raises((CopierError, ValueError, OSError)):
         generate(template, {**BARE, "project_name": name}, tmp_path)
 
 
 def test_the_jinja_in_the_models_is_only_what_dbt_should_see(full):
     """dbt reads Jinja in comments too: a config() in a comment sets the config."""
+    # Holds DBT-3.
     for path in (full / "dbt/models").glob("*.sql"):
         for line in path.read_text().splitlines():
             if line.lstrip().startswith("--"):
@@ -161,6 +173,7 @@ def test_the_jinja_in_the_models_is_only_what_dbt_should_see(full):
 
 
 def test_the_readme_explains_each_part_that_was_included(full, bare):
+    # Holds GEN-5, SEC-3, SEC-4, DOC-2.
     full_readme = (full / "README.md").read_text()
     bare_readme = (bare / "README.md").read_text()
 
@@ -176,6 +189,7 @@ def test_the_readme_explains_each_part_that_was_included(full, bare):
 
 def test_the_scope_is_a_step_before_the_bundle(full, bare):
     """The scope step feeds the bundle under lely, and the job reads the variable."""
+    # Holds DEP-1, SEC-1, SEC-2, SEC-3.
     lely = yaml.safe_load((full / "lely.yml").read_text())
     steps = lely["steps"]
     assert [s["name"] for s in steps] == ["scope", "bundle"]
@@ -193,6 +207,7 @@ def test_the_scope_is_a_step_before_the_bundle(full, bare):
 
 def test_git_ignores_a_file_of_credentials(full, bare, tmp_path):
     """Tools read a token from `.env`; one `git add` must not publish it."""
+    # Holds TSK-5, SEC-5.
     for project in (full, bare):
         repository = tmp_path / project.name
         repository.mkdir()
@@ -210,3 +225,78 @@ def test_git_ignores_a_file_of_credentials(full, bare, tmp_path):
             check=False,
         )
         assert done.returncode == 1, "the example file is hidden"
+
+
+def test_the_default_answers_write_a_product(template, tmp_path):
+    """Every question has a default: a name is enough, and the rest is recorded."""
+    # Holds GEN-1, GEN-2.
+    project = generate(template, {"project_name": "defaults"}, tmp_path)
+    answers = yaml.safe_load((project / ".copier-answers.yml").read_text())
+
+    assert {name: answer for name, answer in answers.items() if name[0] != "_"} == {
+        "project_name": "defaults",
+        "package_name": "defaults",
+        "catalog": "main",
+        "warehouse_id": "",
+        "secret_scope": "",
+        "include_dbt": True,
+        "include_stevin": False,
+        "include_lely": True,
+        "include_caland": True,
+        "include_contracts": True,
+    }
+    assert files(project) >= ALWAYS | OPTIONAL["dbt"] | OPTIONAL["lely"]
+
+
+def test_the_job_has_one_task_without_dbt_and_stevin(bare):
+    # Holds BND-4.
+    job = yaml.safe_load((bare / "resources/bare.job.yml").read_text())
+
+    (task,) = job["resources"]["jobs"]["bare"]["tasks"]
+    assert task["task_key"] == "ingest"
+
+
+def test_the_targets_are_dev_and_prod(full, bare):
+    # Holds BND-5.
+    for project in (full, bare):
+        targets = yaml.safe_load((project / "databricks.yml").read_text())["targets"]
+
+        assert targets == {
+            "dev": {"mode": "development", "default": True},
+            "prod": {"mode": "production"},
+        }
+
+
+def test_the_wheel_carries_dlts_config_and_no_secrets(full):
+    # Holds BND-6.
+    wheel = tomllib.loads((full / "pyproject.toml").read_text())["tool"]["hatch"]["build"]
+
+    assert wheel["targets"]["wheel"]["packages"] == ["src/shop_data"]
+    assert wheel["targets"]["wheel"]["force-include"] == {
+        ".dlt/config.toml": "shop_data/.dlt/config.toml"
+    }
+    assert not (full / ".dlt/secrets.toml").exists()
+
+
+def test_mise_brings_the_tools_and_the_tasks_of_what_was_chosen(full, bare):
+    # Holds TSK-1, TSK-2, TSK-3, SEC-4.
+    always = {"dev", "check", "fix", "clean", "deploy", "job", "doctor", "ingest"}
+    chosen = {"transform", "scope", "plan", "apply", "destroy", "secrets"}
+    with_ = tomllib.loads((full / "mise.toml").read_text())
+    without = tomllib.loads((bare / "mise.toml").read_text())
+
+    assert set(without["tools"]) == {"python", "uv", "databricks-cli"}
+    assert set(with_["tools"]) == set(without["tools"]) | {"pipx:lely", "pipx:caland"}
+    assert set(without["tasks"]) == always
+    assert {name for name in with_["tasks"] if ":" not in name} == always | chosen
+    assert with_["tasks"]["secrets"]["run"] == "caland"
+    assert with_["tasks"]["dev"]["run"] == "uv run ingest run example"
+
+    gate = ["uv run ruff check .", "uv run ruff format --check .", "uv run ingest list"]
+    assert without["tasks"]["check"]["run"] == gate
+    assert with_["tasks"]["check"]["run"][:3] == gate
+    assert with_["tasks"]["check"]["run"][3].startswith("uv run --group dev dbt parse ")
+    for project in (full, bare):
+        workflow = yaml.safe_load((project / ".github/workflows/ci.yml").read_text())
+        runs = [step.get("run") for step in workflow["jobs"]["check"]["steps"]]
+        assert runs.index("mise run check") < runs.index("mise run dev")

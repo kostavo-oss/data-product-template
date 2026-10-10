@@ -146,6 +146,7 @@ def copy(landed, tmp_path) -> Path:
 
 
 def test_contracts_are_written_with_and_without_dbt(full, landed):
+    # Holds CON-1.
     assert files(full) >= CONTRACTS | {SQUARES}
     assert NUMBERS not in files(full)
     assert files(landed) >= CONTRACTS | {NUMBERS}
@@ -153,6 +154,7 @@ def test_contracts_are_written_with_and_without_dbt(full, landed):
 
 
 def test_nothing_of_contracts_is_written_when_not_wanted(bare, plain):
+    # Holds GEN-5, DOC-1.
     for project in (bare, plain):
         written = files(project)
         assert not (CONTRACTS & written)
@@ -163,6 +165,7 @@ def test_nothing_of_contracts_is_written_when_not_wanted(bare, plain):
 
 
 def test_each_output_port_names_the_contract_beside_it(full, landed):
+    # Holds CON-1.
     for project, path in ((full, SQUARES), (landed, NUMBERS)):
         product = yaml.safe_load((project / "dataproduct.yaml").read_text())
         contract = yaml.safe_load((project / path).read_text())
@@ -180,6 +183,7 @@ def test_each_output_port_names_the_contract_beside_it(full, landed):
 
 def test_the_contract_describes_what_the_example_makes(full, landed):
     """The columns of the dbt model, and of the table the pipeline loads."""
+    # Holds CON-2.
 
     def columns(contract: Path) -> list[str]:
         schema = yaml.safe_load(contract.read_text())["schema"][0]
@@ -197,6 +201,7 @@ def test_the_contract_describes_what_the_example_makes(full, landed):
 
 
 def test_the_servers_are_the_local_file_and_the_deployed_table(full, landed):
+    # Holds CON-3.
     servers = yaml.safe_load((landed / NUMBERS).read_text())["servers"]
     assert [(s["server"], s["type"]) for s in servers] == [
         ("local", "duckdb"),
@@ -212,6 +217,7 @@ def test_the_servers_are_the_local_file_and_the_deployed_table(full, landed):
 
 
 def test_the_tasks_are_there_for_what_was_included(full, landed):
+    # Holds TSK-3, CON-4.
     with_dbt = tomllib.loads((full / "mise.toml").read_text())["tasks"]
     without = tomllib.loads((landed / "mise.toml").read_text())["tasks"]
     always = {"lint", "pull", "check", "dlt", "catalog", "edit"}
@@ -225,6 +231,7 @@ def test_the_tasks_are_there_for_what_was_included(full, landed):
 
 
 def test_ci_compares_the_contracts_with_the_base_branch(full):
+    # Holds GEN-4, CON-5.
     workflow = yaml.safe_load((full / ".github/workflows/ci.yml").read_text())
     steps = workflow["jobs"]["check"]["steps"]
     (gate,) = [step for step in steps if "breaking" in step.get("run", "")]
@@ -239,6 +246,7 @@ def test_ci_compares_the_contracts_with_the_base_branch(full):
 
 
 def test_lint_passes_on_what_was_written(full, landed):
+    # Holds CON-6.
     for project in (full, landed):
         done = ports(project, "lint")
 
@@ -247,6 +255,7 @@ def test_lint_passes_on_what_was_written(full, landed):
 
 
 def test_lint_refuses_an_output_port_whose_contract_is_missing(copy):
+    # Holds CON-6.
     (copy / NUMBERS).unlink()
 
     done = ports(copy, "lint")
@@ -257,6 +266,7 @@ def test_lint_refuses_an_output_port_whose_contract_is_missing(copy):
 
 def test_edit_opens_a_promise_of_this_product_and_nothing_else(copy):
     """The editor itself is a server and a browser; what is tested is what it is given."""
+    # Holds CON-8.
     done = ports(copy, "edit", "transactions")
 
     assert done.returncode == 2
@@ -265,6 +275,7 @@ def test_edit_opens_a_promise_of_this_product_and_nothing_else(copy):
 
 def test_the_loaded_table_keeps_its_contract(landed, tmp_path):
     """The example pipeline into a local DuckDB file, then the contract against it."""
+    # Holds CON-7.
     environment = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}
     environment["DLT_DATA_DIR"] = str(tmp_path)
     synced = subprocess.run([uv(), "sync"], cwd=landed, capture_output=True, text=True)
@@ -288,6 +299,7 @@ def test_the_loaded_table_keeps_its_contract(landed, tmp_path):
 
 
 def test_dbt_gets_its_columns_from_the_contract(full, tmp_path):
+    # Holds CON-9.
     project = Path(shutil.copytree(full, tmp_path / "full", ignore=_left_by_runs))
     schema = project / "dbt/models/schema.yml"
     before = schema.read_text()
@@ -321,6 +333,7 @@ def committed(copy) -> Path:
 
 
 def test_a_compatible_edit_passes_the_gate(committed):
+    # Holds CON-5.
     edit(committed / NUMBERS, "The number times itself.", "The number, squared.")
 
     done = ports(committed, "breaking", "--base", "main")
@@ -330,6 +343,7 @@ def test_a_compatible_edit_passes_the_gate(committed):
 
 
 def test_a_breaking_edit_to_v1_is_refused(committed):
+    # Holds CON-5.
     edit(committed / NUMBERS, SQUARE, "")
 
     done = ports(committed, "breaking", "--base", "main")
@@ -342,6 +356,7 @@ def test_a_breaking_edit_to_v1_is_refused(committed):
 
 
 def test_a_new_version_passes_the_gate(committed):
+    # Holds CON-5.
     second = committed / "contracts/output/numbers/v2.odcs.yaml"
     shutil.copy(committed / NUMBERS, second)
     edit(second, "version: 1.0.0", "version: 2.0.0")
@@ -355,6 +370,7 @@ def test_a_new_version_passes_the_gate(committed):
 
 
 def test_a_base_git_does_not_know_is_not_a_pass(committed):
+    # Holds CON-5.
     done = ports(committed, "breaking", "--base", "origin/main")
 
     assert done.returncode == 1
@@ -385,6 +401,7 @@ def reads(product: Path, port: dict) -> None:
 
 
 def test_pull_keeps_the_producers_contract_as_a_snapshot(consumer):
+    # Holds CON-10.
     theirs = consumer.parent / "payments/contracts/output/transactions/v1.odcs.yaml"
     snapshot = consumer / "contracts/input/transactions/v1.odcs.yaml"
 
@@ -398,6 +415,7 @@ def test_pull_keeps_the_producers_contract_as_a_snapshot(consumer):
 
 
 def test_check_before_a_pull_says_to_pull(consumer):
+    # Holds CON-11.
     done = ports(consumer, "check")
 
     assert done.returncode == 1
@@ -408,6 +426,7 @@ def test_check_before_a_pull_says_to_pull(consumer):
 
 
 def test_check_is_fine_while_the_producer_keeps_its_promise(consumer):
+    # Holds CON-11.
     ports(consumer, "pull")
 
     done = ports(consumer, "check")
@@ -417,6 +436,7 @@ def test_check_is_fine_while_the_producer_keeps_its_promise(consumer):
 
 
 def test_check_warns_when_the_version_is_deprecated(consumer):
+    # Holds CON-11.
     ports(consumer, "pull")
     port = {**PRODUCER["outputPorts"][0], "deprecated": True}
     write(
@@ -431,6 +451,7 @@ def test_check_warns_when_the_version_is_deprecated(consumer):
 
 
 def test_check_refuses_when_the_version_is_gone(consumer):
+    # Holds CON-11.
     ports(consumer, "pull")
     port = {**PRODUCER["outputPorts"][0], "version": "2.0.0"}
     write(
@@ -444,6 +465,7 @@ def test_check_refuses_when_the_version_is_gone(consumer):
 
 
 def test_check_refuses_when_the_producer_broke_the_contract(consumer):
+    # Holds CON-11.
     ports(consumer, "pull")
     only_id = PRODUCERS_CONTRACT["schema"][0]["properties"][:1]
     schema = {"name": "transactions", "properties": only_id}
@@ -460,6 +482,7 @@ def test_check_refuses_when_the_producer_broke_the_contract(consumer):
 
 
 def test_check_warns_when_the_producer_changed_the_contract_compatibly(consumer):
+    # Holds CON-11.
     ports(consumer, "pull")
     write(
         consumer.parent / "payments/contracts/output/transactions/v1.odcs.yaml",
@@ -473,6 +496,7 @@ def test_check_warns_when_the_producer_changed_the_contract_compatibly(consumer)
 
 
 def test_a_port_without_a_contract_is_refused_with_the_reason(consumer):
+    # Holds CON-12.
     reads(consumer, {k: v for k, v in INPUT_PORT.items() if k != "contractId"})
 
     for verb in ("pull", "check"):
@@ -484,6 +508,7 @@ def test_a_port_without_a_contract_is_refused_with_the_reason(consumer):
 
 
 def test_a_port_without_a_version_is_refused_with_the_reason(consumer):
+    # Holds CON-12.
     reads(consumer, {k: v for k, v in INPUT_PORT.items() if k != "version"})
 
     done = ports(consumer, "pull")
@@ -493,6 +518,7 @@ def test_a_port_without_a_version_is_refused_with_the_reason(consumer):
 
 
 def test_pull_refuses_a_file_that_is_another_contract(consumer):
+    # Holds CON-10.
     reads(consumer, {**INPUT_PORT, "contractId": "payments.refunds"})
 
     done = ports(consumer, "pull")
@@ -514,6 +540,7 @@ def produces(consumer: Path, *properties: dict) -> None:
 
 
 def test_dlt_writes_a_schema_from_the_snapshot(consumer):
+    # Holds CON-13.
     produces(
         consumer,
         {"name": "id", "logicalType": "string", "primaryKey": True},
@@ -559,6 +586,7 @@ def test_dlt_writes_a_schema_from_the_snapshot(consumer):
 
 
 def test_dlt_before_a_pull_says_to_pull(consumer):
+    # Holds CON-13.
     done = ports(consumer, "dlt")
 
     assert done.returncode == 1
@@ -583,6 +611,7 @@ def test_dlt_before_a_pull_says_to_pull(consumer):
     ],
 )
 def test_dlt_refuses_what_it_cannot_say_in_a_schema(consumer, column, sentence):
+    # Holds CON-14.
     produces(consumer, {"name": "id", "logicalType": "string"}, column)
     ports(consumer, "pull")
 
@@ -595,6 +624,7 @@ def test_dlt_refuses_what_it_cannot_say_in_a_schema(consumer, column, sentence):
 
 def test_a_pipeline_refuses_what_the_contract_does_not_have(consumer, tmp_path):
     """Pulled, written as a schema, and kept by dlt on a load into a local DuckDB file."""
+    # Holds CON-15.
     assert (
         "import_schema_path=SCHEMAS)"
         in (consumer / "contracts/input/README.md").read_text()
