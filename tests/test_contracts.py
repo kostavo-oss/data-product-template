@@ -67,6 +67,34 @@ INPUT_PORT = {
         {"type": "dataProduct", "url": "../payments/dataproduct.yaml"},
     ],
 }
+SNAPSHOT = "contracts/input/transactions/v1.odcs.yaml"
+SCHEMA = "src/landed/schemas/transactions.schema.yaml"
+# The line contracts/input/README.md gives a pipeline, in a pipeline.
+TAKES_THE_SCHEMA = (
+    'leeghwater.create_pipeline("transactions", import_schema_path=SCHEMAS)'
+)
+PIPELINE = f'''"""Loads the input port transactions: the rows it is given, as JSON."""
+
+import json
+from pathlib import Path
+
+import dlt
+import leeghwater
+from leeghwater import pipeline
+
+SCHEMAS = Path(__file__).parent.parent / "schemas"
+
+
+@dlt.resource
+def transactions(rows: str):
+    yield from json.loads(rows)
+
+
+@pipeline
+def payments(rows: str = "[]"):
+    p = {TAKES_THE_SCHEMA}
+    return leeghwater.run(p, transactions(rows))
+'''
 
 
 def uv() -> str:
@@ -186,7 +214,7 @@ def test_the_servers_are_the_local_file_and_the_deployed_table(full, landed):
 def test_the_tasks_are_there_for_what_was_included(full, landed):
     with_dbt = tomllib.loads((full / "mise.toml").read_text())["tasks"]
     without = tomllib.loads((landed / "mise.toml").read_text())["tasks"]
-    always = {"lint", "pull", "check", "catalog", "edit"}
+    always = {"lint", "pull", "check", "dlt", "catalog", "edit"}
 
     assert {t[10:] for t in with_dbt if t.startswith("contracts:")} == always | {"dbt"}
     assert {t[10:] for t in without if t.startswith("contracts:")} == always | {"test"}
@@ -471,3 +499,156 @@ def test_pull_refuses_a_file_that_is_another_contract(consumer):
 
     assert done.returncode == 2
     assert "is not the contract payments.refunds" in done.stderr
+
+
+# ── a dlt schema from an input contract ──────────────────────────────────────
+
+
+def produces(consumer: Path, *properties: dict) -> None:
+    """The producer's contract, with these properties instead of its own."""
+    schema = {"name": "transactions", "properties": list(properties)}
+    write(
+        consumer.parent / "payments/contracts/output/transactions/v1.odcs.yaml",
+        {**PRODUCERS_CONTRACT, "schema": [schema]},
+    )
+
+
+def test_dlt_writes_a_schema_from_the_snapshot(consumer):
+    produces(
+        consumer,
+        {"name": "id", "logicalType": "string", "primaryKey": True},
+        {"name": "amount", "logicalType": "number"},
+        {"name": "count", "logicalType": "integer", "required": True},
+        {"name": "paid", "logicalType": "boolean"},
+        {"name": "paid_on", "logicalType": "date"},
+        {"name": "paid_at", "logicalType": "timestamp"},
+        {"name": "at_time", "logicalType": "time"},
+        {"name": "buyer", "logicalType": "object"},
+        {"name": "tags", "logicalType": "array"},
+    )
+    ports(consumer, "pull")
+
+    done = ports(consumer, "dlt")
+
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert done.stdout.strip() == f"transactions: {SCHEMA} written, from {SNAPSHOT}"
+    assert "Not edited by hand" in (consumer / SCHEMA).read_text()
+    schema = yaml.safe_load((consumer / SCHEMA).read_text())
+    assert schema["name"] == "transactions"
+    assert set(schema["tables"]) == {"_dlt_version", "_dlt_loads", "transactions"}
+    table = schema["tables"]["transactions"]
+    assert table["schema_contract"] == "freeze"
+    assert table["columns"]["id"] == {
+        "data_type": "text",
+        "nullable": False,
+        "primary_key": True,
+    }
+    assert table["columns"]["count"] == {"data_type": "bigint", "nullable": False}
+    assert {name: column["data_type"] for name, column in table["columns"].items()} == {
+        "id": "text",
+        "amount": "double",
+        "count": "bigint",
+        "paid": "bool",
+        "paid_on": "date",
+        "paid_at": "timestamp",
+        "at_time": "time",
+        "buyer": "json",
+        "tags": "json",
+    }
+    assert f"{SCHEMA} unchanged" in ports(consumer, "dlt").stdout
+
+
+def test_dlt_before_a_pull_says_to_pull(consumer):
+    done = ports(consumer, "dlt")
+
+    assert done.returncode == 1
+    assert f"no snapshot at {SNAPSHOT}: run `uv run ops/ports.py pull`" in done.stderr
+
+
+@pytest.mark.parametrize(
+    ("column", "sentence"),
+    [
+        (
+            {"name": "rate", "logicalType": "decimal"},
+            "transactions.rate: dlt has no type for the logicalType decimal",
+        ),
+        (
+            {"name": "rate"},
+            "transactions.rate: dlt has no type for the logicalType None",
+        ),
+        (
+            {"name": "paidAt", "logicalType": "timestamp"},
+            "transactions.paidAt: dlt would load the name paidAt as another",
+        ),
+    ],
+)
+def test_dlt_refuses_what_it_cannot_say_in_a_schema(consumer, column, sentence):
+    produces(consumer, {"name": "id", "logicalType": "string"}, column)
+    ports(consumer, "pull")
+
+    done = ports(consumer, "dlt")
+
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert f"{SNAPSHOT}: {sentence}" in done.stderr
+    assert not (consumer / SCHEMA).exists()
+
+
+def test_a_pipeline_refuses_what_the_contract_does_not_have(consumer, tmp_path):
+    """Pulled, written as a schema, and kept by dlt on a load into a local DuckDB file."""
+    assert (
+        "import_schema_path=SCHEMAS)"
+        in (consumer / "contracts/input/README.md").read_text()
+    )
+    assert ports(consumer, "pull").returncode == 0
+    assert ports(consumer, "dlt").returncode == 0
+    (consumer / "src/landed/pipelines/payments.py").write_text(PIPELINE)
+    environment = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}
+    synced = subprocess.run([uv(), "sync"], cwd=consumer, capture_output=True, text=True)
+    if synced.returncode != 0:
+        pytest.skip(f"the project could not be synced here: {synced.stderr[-400:]}")
+
+    def load(rows: str, state: str) -> subprocess.CompletedProcess:
+        # A state folder for each run: dlt tries a refused load again on the next run.
+        return subprocess.run(
+            [uv(), "run", "ingest", "run", "payments", "--rows", rows],
+            cwd=consumer,
+            capture_output=True,
+            text=True,
+            env={**environment, "DLT_DATA_DIR": str(tmp_path / state)},
+        )
+
+    def loaded() -> str:
+        query = "select id, amount from transactions_dataset.transactions order by id"
+        file = "duckdb.connect('transactions.duckdb')"
+        script = f"import duckdb; print({file}.sql({query!r}).fetchall())"
+        said = subprocess.run(
+            [uv(), "run", "python", "-c", script],
+            cwd=consumer,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+        return said.stdout.strip()
+
+    kept = load('[{"id": "a", "amount": 1.5}, {"id": "b", "amount": 2}]', "kept")
+    assert kept.returncode == 0, kept.stdout + kept.stderr
+    assert loaded() == "[('a', 1.5), ('b', 2.0)]"
+
+    more = load('[{"id": "c", "amount": 3.0, "note": "not in the contract"}]', "more")
+    assert more.returncode != 0
+    assert (
+        "Can't add table column `note` to table `transactions` because `columns` are"
+        " frozen" in more.stdout + more.stderr
+    )
+
+    other = load('[{"id": "d", "amount": "a lot"}]', "other")
+    assert other.returncode != 0
+    assert "because `data_types` are frozen" in other.stdout + other.stderr
+
+    empty = load('[{"id": null, "amount": 1.0}]', "empty")
+    assert empty.returncode != 0
+    assert "column `id` which is not nullable" in empty.stdout + empty.stderr
+
+    assert loaded() == "[('a', 1.5), ('b', 2.0)]"
+    # dlt wrote no schema of its own: the pipeline's name was the port's.
+    assert [p.name for p in (consumer / SCHEMA).parent.iterdir()] == [Path(SCHEMA).name]

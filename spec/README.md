@@ -159,7 +159,7 @@ MIT) already does what the package would have done. From its
 
 `lint`, `test`, `breaking`, `catalog` and `dbt sync` are its commands. What it does not
 know is where a product keeps its files and which contract belongs to which port. That is
-`ops/ports.py`, 276 lines with PyYAML as its one dependency, and it is the product's own
+`ops/ports.py`, 467 lines with PyYAML as its one dependency, and it is the product's own
 file once written.
 
 ### Decided
@@ -240,9 +240,9 @@ file once written.
   has a contract (ODCS v3.2.0) for the table the example really makes; `mise run check`
   lints the contracts; CI refuses a breaking edit to an existing version file and passes
   a new one; `ops/ports.py` has `lint`, `test`, `pull`, `check`, `breaking`, `catalog`,
-  `edit` and `dbt`, each behind a `contracts:*` task except `breaking` (CI's) and, with
+  `edit`, `dbt` and `dlt`, each behind a `contracts:*` task except `breaking` (CI's) and, with
   dbt, `test`. `edit` opens an output contract in the Data Contract Editor, which the
-  CLI serves from its own package on this machine; the template builds no editor. Without `include_contracts` none of it is written and nothing mentions it.
+  CLI serves from its own package on this machine; the template builds no editor. `dlt` writes a dlt schema from every input snapshot, with every table frozen (below). Without `include_contracts` none of it is written and nothing mentions it.
 
 ### Run
 
@@ -283,6 +283,100 @@ On 2026-10-10, on a laptop, with `datacontract-cli[duckdb,databricks]==1.2.4` th
 
 `tests/test_contracts.py` runs most of this again on every change.
 
+### A dlt schema from an input contract
+
+Added on 2026-10-10, for
+[#11](https://github.com/kostavo-oss/data-product-template/issues/11). Two things had not
+been run. Both were, with dlt 1.31.0 and leeghwater 0.1.0, into a local DuckDB file.
+
+**Can a schema file carry the freeze? Yes, on a table.** A pipeline made with
+`import_schema_path` reads `<schema name>.schema.yaml` from that folder. Three places
+for the contract were tried, each with a row that has one column too many:
+
+| Where `freeze` stood | What dlt did |
+|---|---|
+| in the file, under `settings: schema_contract` | loaded the row and added the column: the file's settings are not kept |
+| in the file, on the table: `schema_contract: freeze` | `Contract on columns with contract_mode=freeze is violated. Can't add table column note to table transactions because columns are frozen.` |
+| on the run: `run(..., schema_contract="freeze")`, nothing in the file | the same refusal, and also `Can't add table other because tables are frozen` for a table the file does not have |
+
+So the file carries it, table by table, and a pipeline needs one argument and no line on
+its run.
+
+**Can `export custom` write the file? It gets enough, and it is not used.**
+`datacontract export custom <contract> --template <file>` hands the template
+`data_contract`, with `schema_`, and on every property `name`, `logicalType`,
+`physicalType`, `required` and `primaryKey`. A template that maps the types printed
+`data_type: ` and nothing after it for a property without a type, and exited 0: a
+template cannot refuse. The script would have to read the result back to find that. It
+reads the contract itself instead, with the PyYAML it already has: one table of types,
+one loop, and a refusal where the type is looked up. That is less than a template, a
+call and a second reading.
+
+**Decided by the writer:**
+
+- **A verb of its own, `dlt`, behind `contracts:dlt`.** It reads the snapshots and
+  fetches nothing, as `dbt` reads the output contracts. `pull` stays the one verb that
+  asks the producer.
+- **The file is `src/<package>/schemas/<port>.schema.yaml`.** It is inside the package,
+  because a job runs the wheel and its working directory is not the product's folder. A
+  pipeline names the folder from its own file:
+  `SCHEMAS = Path(__file__).parent.parent / "schemas"`, then
+  `leeghwater.create_pipeline("<port>", import_schema_path=SCHEMAS)`. leeghwater hands
+  the argument to `dlt.pipeline` as it is. The file says in its first lines that it is
+  written by the verb and not edited by hand.
+- **The schema is named after the port.** dlt looks for the file by the schema's name,
+  which is the pipeline's name, or the name of a `@dlt.source`. With another name dlt
+  finds nothing, loads every row and writes `<name>.schema.yaml` of its own beside it.
+  `schema_contract="freeze"` on the run turns that into a refusal, and the product's
+  page on input ports says so.
+- **dlt's own two tables are in the file, as dlt 1.31.0 writes them.** Without them dlt
+  says `Schema must contain table _dlt_version`; without `previous_hashes` it fails on
+  that key. The file says `engine_version: 11`, which dlt 1.30.0 also has, and a later
+  dlt moves an older file forward itself. `settings` and `normalizers` are left out:
+  dlt fills them in, and the schema dlt keeps after a load has both.
+- **The types**: `string` text, `integer` bigint, `number` double, `boolean` bool,
+  `date`, `timestamp` and `time` the same, `object` and `array` json. A `number` has no
+  scale in ODCS. Any other `logicalType`, or none, is refused with the snapshot, the
+  object and the property.
+- **`nullable` is false for `required` and for `primaryKey`**, and `primary_key` is true
+  for `primaryKey`.
+- **A name dlt would change is refused.** dlt loads `paidAt` as `paid_at`. A schema with
+  `paidAt` would freeze a column that never arrives, and refuse the one that does. The
+  script has no dlt to ask for the other name, so it accepts only names dlt keeps: small
+  letters, digits, single underscores, none at the end.
+
+**Run**, each a command and what it printed last. `ingest run` is the product's own
+command, with a pipeline that loads the rows it is given.
+
+| What | Printed |
+|---|---|
+| a schema file with the contract's table only | `'previous_hashes'`, then with that key `Schema must contain table _dlt_version` |
+| `datacontract export custom c.odcs.yaml --template dump.jinja` | every property with its `logicalType`, `required` and `primaryKey`; exit 0 |
+| the same with a template that maps the types, on a property without one | `data_type: ` with nothing after it; exit 0 |
+| `datacontract export c.odcs.yaml --format custom` | `--format needs to be omitted since v0.12.0`; exit 2 |
+| `ports.py dlt` before a pull | `no snapshot at contracts/input/transactions/v1.odcs.yaml: run uv run ops/ports.py pull`; exit 1 |
+| `ports.py dlt` after a pull, and again | `transactions: src/landed/schemas/transactions.schema.yaml written, from contracts/input/transactions/v1.odcs.yaml`; then `unchanged`; exit 0 |
+| `ports.py dlt` with `logicalType: decimal`, and with none | `…: transactions.rate: dlt has no type for the logicalType decimal`; exit 2 |
+| `ports.py dlt` with a property `paidAt` | `…: transactions.paidAt: dlt would load the name paidAt as another: …`; exit 2 |
+| `ingest run` with a row of all nine types | exit 0; DuckDB has `VARCHAR`, `DOUBLE`, `BIGINT`, `BOOLEAN`, `DATE`, `TIMESTAMP WITH TIME ZONE`, `TIME`, `JSON`, `JSON`, and `NO` under null for the required column and the key |
+| a row with a column `note` | `Can't add table column note to table transactions because columns are frozen`; exit 1 |
+| a text in a `number`, a fraction in an `integer`, `yesterday` in a `date` | `Can't add variant column amount__v_text for table transactions because data_types are frozen`; exit 1 each |
+| `null` in a required column | `Cannot coerce NULL in table transactions column count which is not nullable`; exit 1 |
+| a row without the required column | DuckDB's `NOT NULL constraint failed: transactions.count`; exit 1 |
+| an object the contract does not have, and a list | `Can't add table column extra__a …`; `Can't add table transactions__items because tables are frozen`; exit 1 |
+| a pipeline with another name | exit 0, the row with `note` loaded, and `other.schema.yaml` written beside the schema |
+| the same with `schema_contract="freeze"` on the run | `Can't add table transactions because tables are frozen`; exit 1 |
+| the port's name and `schema_contract="freeze"` on the run | rows that keep the contract: exit 0; the row with `note`: exit 1 |
+| a pipeline named otherwise running `@dlt.source(name="transactions")` | rows that keep the contract: exit 0; the row with `note`: exit 1 |
+| rows that keep the contract, after a refused run with the same state | `Pending packages are left in the pipeline and will be re-tried on the next pipeline run`; exit 1 |
+| `dlt pipeline transactions abort-packages` from a script | `Proceed? [y/N]:` and nothing dropped; `dlt.attach("transactions").abort_packages()` dropped them, and the next run exited 0 |
+| `uv build --wheel`, then `unzip -l` | `landed/schemas/transactions.schema.yaml` is in the wheel |
+| the wheel installed in another folder: `ingest run` there | rows that keep the contract: exit 0; the row with `note`: `columns are frozen`, exit 1 |
+
+`tests/test_contracts.py` pulls from a producer in a folder beside, writes the schema,
+loads rows that keep it, and sees dlt refuse a column the contract does not have, a text
+in a number and an empty key. It also runs the three refusals of the verb.
+
 ### Not yet
 
 - **The contracts in the job**: `check` as the job's first task, `test` as its last, the
@@ -295,10 +389,13 @@ On 2026-10-10, on a laptop, with `datacontract-cli[duckdb,databricks]==1.2.4` th
   entries are linted and their variables were seen to resolve on a DuckDB server; no test
   has reached a workspace. The `physicalType` of each column (`bigint`, `double`) is what
   Databricks is expected to report and has not been compared there. Part of #10.
-- **A dlt import schema from an input contract**, so that a pipeline refuses what the
-  contract does not have. The CLI's `export custom` takes a template; whether a dlt
-  import schema can carry `schema_contract: freeze` is not verified.
-  [#11](https://github.com/kostavo-oss/data-product-template/issues/11)
+- **Of the dlt schema** (the section above): a load into Databricks with it, and the
+  job's `ingest` task reading it from the wheel. `physicalType` is not read, so a
+  `number` is a double whatever its precision. A name dlt would change is refused, not
+  written under dlt's name. The properties inside an `object` and the items of an `array`
+  are one `json` column and are not held. Nothing says that a schema file is older than
+  its snapshot: `pull` does not write it. `dlt pipeline <name> abort-packages` was not
+  answered from a script.
 - **The CI gate on GitHub.** The command the workflow runs was run in a local repository.
   The workflow itself has not run: no product is a repository on GitHub yet (Still open,
   2).

@@ -72,6 +72,10 @@ run = "uv run ops/ports.py pull"
 description = "Before a run: is what the input ports read still what was pulled"
 run = "uv run ops/ports.py check"
 
+[tasks."contracts:dlt"]
+description = "Write a dlt schema from every input port's snapshot, for a pipeline to keep"
+run = "uv run ops/ports.py dlt"
+
 [tasks."contracts:catalog"]
 description = "Write the contracts as pages into site/contracts/"
 run = "uv run ops/ports.py catalog"

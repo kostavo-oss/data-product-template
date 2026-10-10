@@ -17,12 +17,14 @@ Contract CLI does the work, as a pinned command; this file only knows where thin
     catalog                 the contracts as pages, in site/contracts/
     edit [PORT]             an output contract in the Data Contract Editor, on this machine
     dbt [--dry-run]         columns and tests from the output contracts into dbt/
+    dlt                     a dlt schema from every input snapshot, for a pipeline
 
 Exit codes: 0 fine, 1 could not run, 2 refused. `lint`, `test`, `catalog` and `dbt` hand
 on what the CLI says, and the CLI says 1 for a contract that fails.
 """
 
 import argparse
+import re
 import subprocess
 import sys
 import tempfile
@@ -291,10 +293,154 @@ def dbt(args) -> int:
     return cli("dbt", "sync", *contracts, "--project-dir", "dbt", *dry)
 
 
+# ODCS's logical types, by the name dlt has for each. A `number` says nothing of its
+# scale, so it is a double.
+DLT_TYPES = {
+    "string": "text",
+    "integer": "bigint",
+    "number": "double",
+    "boolean": "bool",
+    "date": "date",
+    "timestamp": "timestamp",
+    "time": "time",
+    "object": "json",
+    "array": "json",
+}
+# dlt's own two tables, as dlt writes them into a schema file at engine version 11. dlt
+# refuses a schema file without them: "Schema must contain table `_dlt_version`".
+DLT_TABLES = """
+_dlt_version:
+  columns:
+    version:
+      data_type: bigint
+      nullable: false
+      description: Numeric version of the schema, incremented on each schema change
+    engine_version:
+      data_type: bigint
+      nullable: false
+      description: Version of the dlt schema engine that created this schema
+    inserted_at:
+      data_type: timestamp
+      nullable: false
+      description: Timestamp when this schema version was stored
+    schema_name:
+      data_type: text
+      nullable: false
+      description: Name of the schema
+    version_hash:
+      data_type: text
+      nullable: false
+      description: Unique hash of the schema content, used to detect changes
+    schema:
+      data_type: text
+      nullable: false
+      description: JSON representation of the complete schema definition
+  write_disposition: skip
+  resource: _dlt_version
+  description: Created by DLT. Tracks schema updates
+_dlt_loads:
+  columns:
+    load_id:
+      data_type: text
+      nullable: false
+      precision: 64
+      description: Unique identifier of the load operation
+    schema_name:
+      data_type: text
+      nullable: true
+      description: Name of the schema associated with this load
+    status:
+      data_type: bigint
+      nullable: false
+      description: Status of the load operation (0 = success)
+    inserted_at:
+      data_type: timestamp
+      nullable: false
+      description: Timestamp when the load was completed
+    schema_version_hash:
+      data_type: text
+      nullable: true
+      description: Hash of the schema version used during this load
+  write_disposition: skip
+  resource: _dlt_loads
+  description: Created by DLT. Tracks completed loads
+"""
+
+
+def kept(name: object, where: str) -> str:
+    """A name dlt loads as it is written. dlt renames any other (`paidAt` to `paid_at`),
+    and a schema under the first name would then freeze a column that never arrives."""
+    name = str(name)
+    plain = re.fullmatch("[a-z_][a-z0-9_]*", name) and "__" not in name
+    if not plain or name.endswith("_"):
+        raise Stop(
+            f"{where}: dlt would load the name {name} as another: it keeps only small "
+            "letters, digits and single underscores, and no underscore at the end"
+        )
+    return name
+
+
+def dlt_schema(port: dict) -> dict:
+    """A port's snapshot as a dlt schema: an object is a table, a property a column."""
+    path = contract("input", port)
+    if not path.exists():
+        pull_it = "run `uv run ops/ports.py pull`"
+        raise Stop(f"no snapshot at {shown(path)}: {pull_it}", COULD_NOT_RUN)
+    objects = document(path.read_bytes(), shown(path)).get("schema") or []
+    if not objects:
+        raise Stop(f"{shown(path)} has no schema: there is no table to describe")
+    tables = yaml.safe_load(DLT_TABLES)
+    for table in objects:
+        columns = {}
+        for column in table.get("properties") or []:
+            where = f"{shown(path)}: {table.get('name')}.{column.get('name')}"
+            kind = column.get("logicalType")
+            if kind not in DLT_TYPES:
+                raise Stop(f"{where}: dlt has no type for the logicalType {kind}")
+            key = bool(column.get("primaryKey"))
+            columns[kept(column.get("name"), where)] = {
+                "data_type": DLT_TYPES[kind],
+                "nullable": not (column.get("required") or key),
+                **({"primary_key": True} if key else {}),
+            }
+        # The contract stands on the table: a schema file's own `settings` are not kept.
+        name = kept(table.get("name"), f"{shown(path)}: {table.get('name')}")
+        tables[name] = {"columns": columns, "schema_contract": "freeze"}
+    name = kept(port["name"], f"the input port {port['name']}")
+    return {
+        "version": 1,
+        "engine_version": 11,
+        "name": name,
+        "previous_hashes": [],
+        "tables": tables,
+    }
+
+
+def dlt(args) -> int:
+    packages = sorted(p.parent for p in (ROOT / "src").glob("*/pipelines"))
+    if len(packages) != 1:
+        raise Stop("src/ does not hold one package with pipelines/", COULD_NOT_RUN)
+    for port in ports("input"):
+        snapshot = shown(contract("input", port))
+        text = (
+            f"# Written by `uv run ops/ports.py dlt` from {snapshot}.\n"
+            "# Not edited by hand: the next run writes it again.\n"
+            + yaml.safe_dump(dlt_schema(port), sort_keys=False, width=200)
+        )
+        path = packages[0] / "schemas" / f"{port['name']}.schema.yaml"
+        same = path.exists() and path.read_text() == text
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(text)
+        state = "unchanged" if same else "written"
+        print(f"{port['name']}: {shown(path)} {state}, from {snapshot}")
+    return FINE
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="The product's ports and contracts.")
     verbs = parser.add_subparsers(dest="verb", required=True)
-    for verb, run in (("lint", lint), ("pull", pull), ("catalog", catalog)):
+    simple = (("lint", lint), ("pull", pull), ("catalog", catalog), ("dlt", dlt))
+    for verb, run in simple:
         verbs.add_parser(verb).set_defaults(run=run)
     for verb, run, default in (("test", test, "local"), ("check", check, None)):
         served = verbs.add_parser(verb)
