@@ -56,6 +56,7 @@ mise run contracts:test       # the output contracts against the local DuckDB fi
 mise run contracts:pull       # fetch the input ports' contracts, as snapshots
 mise run contracts:check      # is what is read still what was pulled
 mise run contracts:catalog    # the contracts as pages
+mise run contracts:edit       # the output contract in an editor, on your own machine
 mise run contracts:dbt        # columns and tests from the contracts into the dbt models
 ```
 
@@ -73,7 +74,10 @@ exits 0 when fine, 1 when it could not run and 2 when it refuses.
 
 The tasks run `ops/ports.py`, a script of the product's own. It runs the
 [Data Contract CLI](https://github.com/datacontract/datacontract-cli) as a pinned command,
-and needs no platform and no account. The files are in two open standards from
+and needs no platform and no account. `contracts:edit` opens the CLI's own
+[Data Contract Editor](https://github.com/datacontract/datacontract-editor): a form, a
+diagram and the YAML side by side, served from your machine and saved to the file. The
+files are in two open standards from
 [Bitol](https://bitol.io), a Linux Foundation project: ODCS for a contract, ODPS for a
 product. What is not built yet, running the checks inside the job, is in
 `spec/README.md`.

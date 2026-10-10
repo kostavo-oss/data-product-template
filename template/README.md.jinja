@@ -134,6 +134,7 @@ mise run contracts:lint       # every contract is valid; also part of `mise run 
 mise run contracts:test       # the table `mise run dev` loaded, against its contract
 {%- endif %}
 mise run contracts:catalog    # the contracts as pages, in site/contracts/
+mise run contracts:edit       # the contract in an editor: a page served from this machine
 {%- if include_dbt %}
 uv run ops/ports.py dbt --dry-run   # what the contract would write into dbt/models/
 mise run contracts:dbt        # write it: columns, descriptions and tests
