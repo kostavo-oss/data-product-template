@@ -1,16 +1,17 @@
 # data-product-template
 
-**A data product for Databricks, ready to start from.** A template for a Databricks Asset
-Bundle: dlt lands the data, dbt shapes it, one job runs both, the schemas are the bundle's —
-and the Kostavo tools around it, each optional: leeghwater runs the pipelines, stevin keeps
-the tables and the access, lely deploys with a reviewed plan, caland keeps the secrets, and
-every task is one `mise run` away.
+**A data product for Databricks, ready to start from.** A
+[copier](https://copier.readthedocs.io) template that writes a Databricks Asset Bundle:
+dlt lands the data, dbt shapes it, one job runs both, the schemas are the bundle's.
+leeghwater runs the pipelines. The other Kostavo tools are around it, each optional:
+stevin keeps the tables and the access, lely deploys with a reviewed plan, caland keeps
+the secrets. Every task is one `mise run` away.
 
 > **Early.** A generated product has been deployed to a workspace, loaded from a laptop,
 > and shaped by its dbt task on serverless. In one run, on one repository, the GitHub
 > workflows planned on a pull request and applied the reviewed plan on merge. The job's
-> `ingest` task has not finished on a workspace yet. What was tried and what was not is
-> in `spec/README.md`.
+> `ingest` task has not finished on a workspace yet, and nothing of stevin has been
+> applied to one. [TRIED.md](TRIED.md) has every run and what has not been run.
 
 ```sh
 uvx copier copy gh:kostavo-oss/data-product-template my-product
@@ -31,7 +32,7 @@ contracts or README.
 <product>/
   databricks.yml                 variables catalog and warehouse_id; targets dev and prod
   resources/schemas.yml          raw, raw_staging, silver — made by the bundle
-  resources/<product>.job.yml    ingest (wheel task) → transform (dbt task)
+  resources/<product>.job.yml    ingest (wheel task) → transform (dbt task, or a SQL task)
   src/<package>/pipelines/       dlt pipelines, run by leeghwater
   dbt/                           dbt models, reading raw through source('raw', ...)
   stevin/, sql/                  with stevin: the tables as specs, and the SQL that fills them
@@ -43,8 +44,15 @@ contracts or README.
 ```
 
 The questions: a name, a catalog, a warehouse, a secret scope, and whether to include dbt,
-stevin, lely, caland and contracts. `--data name=value` or a data file answers them without a terminal, and
-`.copier-answers.yml` in the product remembers them.
+stevin, lely, caland and contracts. dbt and stevin are apart: a product may have either,
+both or neither. `--data name=value` or a data file answers the questions without a
+terminal, and `.copier-answers.yml` in the product remembers them.
+
+Each of those parts is optional, and the product works without it:
+`databricks bundle deploy` needs no lely, `databricks secrets` needs no caland.
+
+What must be true of a product is in [RULES.md](RULES.md), one numbered rule each, with
+the tests that hold it. Why it is so is in [DECISIONS.md](DECISIONS.md).
 
 ## Tables and access, with stevin
 
@@ -72,8 +80,11 @@ stevin takes its targets and variables from the product's `databricks.yml`, and 
 schemas stay the bundle's. With `include_access_examples` the product also gets
 `stevin/security/`: stevin's three
 [access recipes](https://kostavo-oss.github.io/tools/stevin/access-recipes/) as files to
-edit, with a page that says which names are placeholders. None of this has been applied
-to a workspace yet: `spec/README.md` has what was run and what was not.
+edit, with a page that says which names are placeholders. The rules are STV-1 to STV-9
+and ACC-1 to ACC-5 in [RULES.md](RULES.md). None of this has been applied to a workspace
+yet ([TRIED.md](TRIED.md)), and under lely the table changes are not in the plan a pull
+request reviews
+([#19](https://github.com/kostavo-oss/data-product-template/issues/19)).
 
 ## Contracts between products
 
@@ -98,22 +109,20 @@ Without dbt the product gets `contracts:test` and with dbt `contracts:dbt`: a db
 built on the workspace only, so there is no local copy of it to test. The same holds for
 the table a SQL task fills, so a product with stevin and no dbt gets neither.
 
-**CI holds the promise.** On a pull request, every existing
+**CI holds the promise** (CON-5). On a pull request, every existing
 `contracts/output/<port>/v<N>.odcs.yaml` is compared with the base branch. An edit that
 breaks a reader (a column removed, a type changed) fails the job: a breaking change is a
 new version file, `v<N+1>.odcs.yaml`. A new file always passes.
 
-**A pipeline keeps what it reads.** `contracts:dlt` writes a dlt schema from every
-snapshot into `src/<package>/schemas/<port>.schema.yaml`: the contract's schema objects
-as tables, their properties as columns with dlt's types, every table frozen. A pipeline
-named after the port takes it with one argument,
+**A pipeline keeps what it reads** (CON-13 to CON-15). `contracts:dlt` writes a dlt schema
+from every snapshot into `src/<package>/schemas/<port>.schema.yaml`, with every table
+frozen. A pipeline named after the port takes it with one argument,
 `leeghwater.create_pipeline("<port>", import_schema_path=SCHEMAS)`, and its run fails on a
-row with a column the contract does not have. The contract is frozen in the file, on each
-table; `contracts/input/README.md` in the product has the rest.
+row with a column the contract does not have. `contracts/input/README.md` in the product
+has the rest.
 
-**A consumer checks before it reads.** `check` refuses when the producer broke the
-contract or withdrew the version, and warns when the version is marked deprecated. It
-exits 0 when fine, 1 when it could not run and 2 when it refuses.
+**A consumer checks before it reads** (CON-11). `check` refuses when the producer broke
+the contract or withdrew the version, and warns when the version is marked deprecated.
 
 The tasks run `ops/ports.py`, a script of the product's own. It runs the
 [Data Contract CLI](https://github.com/datacontract/datacontract-cli) as a pinned command,
@@ -122,8 +131,8 @@ and needs no platform and no account. `contracts:edit` opens the CLI's own
 diagram and the YAML side by side, served from your machine and saved to the file. The
 files are in two open standards from
 [Bitol](https://bitol.io), a Linux Foundation project: ODCS for a contract, ODPS for a
-product. What is not built yet, running the checks inside the job, is in
-`spec/README.md`.
+product. Running the checks inside the job is not built yet:
+[#10](https://github.com/kostavo-oss/data-product-template/issues/10).
 
 ## Why
 
@@ -133,9 +142,6 @@ assembled by hand; a developer's run that doesn't match the job's; secrets paste
 files. This template writes that wiring once: the schemas are bundle resources, the job
 gets their deployed names by reference, dbt reads raw through a variable, the same
 `ingest` command runs on a laptop and in the job, and a secret has one place to be.
-
-Every tool around it is optional and the bundle works without it: `databricks bundle
-deploy` needs no lely, `databricks secrets` needs no caland.
 
 ## Named after
 
