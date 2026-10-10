@@ -239,9 +239,10 @@ file once written.
   `include_contracts`: `dataproduct.yaml` (ODPS v1.1.0) lists the ports; every output port
   has a contract (ODCS v3.2.0) for the table the example really makes; `mise run check`
   lints the contracts; CI refuses a breaking edit to an existing version file and passes
-  a new one; `ops/ports.py` has `lint`, `test`, `pull`, `check`, `breaking`, `catalog`
-  and `dbt`, each behind a `contracts:*` task except `breaking` (CI's) and, with dbt,
-  `test`. Without `include_contracts` none of it is written and nothing mentions it.
+  a new one; `ops/ports.py` has `lint`, `test`, `pull`, `check`, `breaking`, `catalog`,
+  `edit` and `dbt`, each behind a `contracts:*` task except `breaking` (CI's) and, with
+  dbt, `test`. `edit` opens an output contract in the Data Contract Editor, which the
+  CLI serves from its own package on this machine; the template builds no editor. Without `include_contracts` none of it is written and nothing mentions it.
 
 ### Run
 
@@ -265,6 +266,9 @@ On 2026-10-10, on a laptop, with `datacontract-cli[duckdb,databricks]==1.2.4` th
 | `ports.py dbt --dry-run` on the generated dbt project | `Would sync 1 model: updated 1 YAML file.`; `schema.yml` unchanged |
 | `ports.py dbt`, then `dbt parse` (dbt 1.12.5) | `Synced 1 model: updated 1 YAML file.`; parse exit 0; a second sync `updated 0 YAML files` |
 | `ports.py catalog` | `Created site/contracts/index.html`; exit 0 |
+| `datacontract edit` with the extras the other verbs use | `Install the extra datacontract-cli[api] to use edit.` |
+| `ports.py edit` (it adds the `api` extra) | `Data Contract Editor running at http://localhost:4243`; the page answers within seconds, its files from `/editor/` on the same address; Ctrl+C stops it |
+| `ports.py edit transactions`, not an output port | `transactions is not an output port; there are: numbers`; exit 2 |
 | `ports.py breaking --base main`: untouched, a changed description | `…/v1.odcs.yaml: same`, `…: compatible`; exit 0 |
 | the same after removing a column from `v1` | `a breaking change needs a new version, v2.odcs.yaml beside it`; exit 2 |
 | the same with the column removed in a new `v2` instead | `…/v2.odcs.yaml: new`; exit 0 |

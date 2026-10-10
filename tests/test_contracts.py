@@ -186,7 +186,7 @@ def test_the_servers_are_the_local_file_and_the_deployed_table(full, landed):
 def test_the_tasks_are_there_for_what_was_included(full, landed):
     with_dbt = tomllib.loads((full / "mise.toml").read_text())["tasks"]
     without = tomllib.loads((landed / "mise.toml").read_text())["tasks"]
-    always = {"lint", "pull", "check", "catalog"}
+    always = {"lint", "pull", "check", "catalog", "edit"}
 
     assert {t[10:] for t in with_dbt if t.startswith("contracts:")} == always | {"dbt"}
     assert {t[10:] for t in without if t.startswith("contracts:")} == always | {"test"}
@@ -225,6 +225,14 @@ def test_lint_refuses_an_output_port_whose_contract_is_missing(copy):
 
     assert done.returncode == 2
     assert f"the output port numbers has no contract: {NUMBERS}" in done.stderr
+
+
+def test_edit_opens_a_promise_of_this_product_and_nothing_else(copy):
+    """The editor itself is a server and a browser; what is tested is what it is given."""
+    done = ports(copy, "edit", "transactions")
+
+    assert done.returncode == 2
+    assert "transactions is not an output port; there are: numbers" in done.stderr
 
 
 def test_the_loaded_table_keeps_its_contract(landed, tmp_path):

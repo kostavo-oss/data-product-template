@@ -15,6 +15,7 @@ Contract CLI does the work, as a pinned command; this file only knows where thin
     check [--server NAME]   before a run: is what is read still what was pulled
     breaking --base REF     before a merge: no breaking edit to a contract that is out
     catalog                 the contracts as pages, in site/contracts/
+    edit [PORT]             an output contract in the Data Contract Editor, on this machine
     dbt [--dry-run]         columns and tests from the output contracts into dbt/
 
 Exit codes: 0 fine, 1 could not run, 2 refused. `lint`, `test`, `catalog` and `dbt` hand
@@ -31,7 +32,15 @@ from pathlib import Path
 import yaml
 
 # The Data Contract CLI, pinned. Its version and extras are changed here and nowhere else.
-CLI = ["uvx", "--from", "datacontract-cli[duckdb,databricks]==1.2.4", "datacontract"]
+VERSION = "1.2.4"
+EXTRAS = "duckdb,databricks"
+
+
+def command(extras: str = EXTRAS) -> list[str]:
+    return ["uvx", "--from", f"datacontract-cli[{extras}]=={VERSION}", "datacontract"]
+
+
+CLI = command()
 
 ROOT = Path(__file__).resolve().parent.parent
 FINE, COULD_NOT_RUN, REFUSED = 0, 1, 2
@@ -252,6 +261,28 @@ def catalog(args) -> int:
     return cli("catalog", "--files", files, "--output", "site/contracts/")
 
 
+def editor(args) -> int:
+    """The Data Contract Editor on one output contract: a page served from this machine.
+
+    Only a promise this product makes is opened. A contract under contracts/input/ is a
+    snapshot of someone else's, and is changed by `pull`, never by hand.
+    """
+    names = [port["name"] for port in ports("output")]
+    known = ", ".join(names) or "none"
+    if args.port is None and len(names) != 1:
+        raise Stop(f"which port? `edit <port>`, one of: {known}")
+    name = args.port or names[0]
+    if name not in names:
+        raise Stop(f"{name} is not an output port; there are: {known}")
+    port = next(port for port in ports("output") if port["name"] == name)
+    # The editor is the CLI's `api` extra; the others are there for its "Run test".
+    words = [*command(f"api,{EXTRAS}"), "edit", shown(contract("output", port))]
+    try:
+        return subprocess.run(words, cwd=ROOT, check=False).returncode
+    except KeyboardInterrupt:  # Ctrl+C is how the editor is closed
+        return FINE
+
+
 def dbt(args) -> int:
     if not (ROOT / "dbt" / "dbt_project.yml").exists():
         raise Stop("there is no dbt project in dbt/ to write to", COULD_NOT_RUN)
@@ -269,6 +300,9 @@ def main() -> int:
         served = verbs.add_parser(verb)
         served.add_argument("--server", default=default, help="the contract's server")
         served.set_defaults(run=run)
+    opened = verbs.add_parser("edit")
+    opened.add_argument("port", nargs="?", help="which output port, if several")
+    opened.set_defaults(run=editor)
     against = verbs.add_parser("breaking")
     against.add_argument("--base", required=True, help="the git ref to compare with")
     against.set_defaults(run=breaking)

@@ -75,6 +75,10 @@ run = "uv run ops/ports.py check"
 [tasks."contracts:catalog"]
 description = "Write the contracts as pages into site/contracts/"
 run = "uv run ops/ports.py catalog"
+
+[tasks."contracts:edit"]
+description = "Open the output contract in the Data Contract Editor, served from this machine"
+run = "uv run ops/ports.py edit"
 {%- if include_dbt %}
 
 [tasks."contracts:dbt"]
