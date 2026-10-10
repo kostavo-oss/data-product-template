@@ -30,14 +30,52 @@ bundle, the job, the tasks and the workflows, never to your pipelines, models or
   resources/<product>.job.yml    ingest (wheel task) → transform (dbt task)
   src/<package>/pipelines/       dlt pipelines, run by leeghwater
   dbt/                           dbt models, reading raw through source('raw', ...)
+  dataproduct.yaml, contracts/   the product's ports, and what each one promises
+  ops/ports.py                   lint, test, pull and check the contracts
   lely.yml, .github/workflows/   plan on a pull request, apply on merge
   mise.toml, .mcp.json           every task; mise's MCP server for coding agents
   AGENTS.md                      the rules, each with its reason
 ```
 
 The questions: a name, a catalog, a warehouse, a secret scope, and whether to include dbt,
-lely and caland. `--data name=value` or a data file answers them without a terminal, and
+lely, caland and contracts. `--data name=value` or a data file answers them without a terminal, and
 `.copier-answers.yml` in the product remembers them.
+
+## Contracts between products
+
+A product says what it promises. `dataproduct.yaml` lists its ports, and every output port
+names a contract: a file with the table's columns, their types, and which are never empty.
+The template writes one for the table its example really makes. A product that reads
+another product's table lists it as an input port and keeps the producer's contract as a
+snapshot.
+
+```sh
+mise run contracts:lint       # every contract is valid; part of `mise run check`
+mise run contracts:test       # the output contracts against the local DuckDB file
+mise run contracts:pull       # fetch the input ports' contracts, as snapshots
+mise run contracts:check      # is what is read still what was pulled
+mise run contracts:catalog    # the contracts as pages
+mise run contracts:dbt        # columns and tests from the contracts into the dbt models
+```
+
+Without dbt the product gets `contracts:test` and with dbt `contracts:dbt`: a dbt model is
+built on the workspace only, so there is no local copy of it to test.
+
+**CI holds the promise.** On a pull request, every existing
+`contracts/output/<port>/v<N>.odcs.yaml` is compared with the base branch. An edit that
+breaks a reader (a column removed, a type changed) fails the job: a breaking change is a
+new version file, `v<N+1>.odcs.yaml`. A new file always passes.
+
+**A consumer checks before it reads.** `check` refuses when the producer broke the
+contract or withdrew the version, and warns when the version is marked deprecated. It
+exits 0 when fine, 1 when it could not run and 2 when it refuses.
+
+The tasks run `ops/ports.py`, a script of the product's own. It runs the
+[Data Contract CLI](https://github.com/datacontract/datacontract-cli) as a pinned command,
+and needs no platform and no account. The files are in two open standards from
+[Bitol](https://bitol.io), a Linux Foundation project: ODCS for a contract, ODPS for a
+product. What is not built yet, running the checks inside the job, is in
+`spec/README.md`.
 
 ## Why
 
@@ -59,11 +97,8 @@ is a handbook you can run.
 
 ## Where it fits
 
-> **Terraform for your platform, Asset Bundles for your code, stevin for your data model —
-> and lely to deploy them as one.**
-
-data-product-template is one of the [Kostavo tools](https://github.com/kostavo-oss) for Databricks: the
-bundle you start from.
+data-product-template is where a product that uses the [Kostavo tools](https://github.com/kostavo-oss/tools) starts: small tools for the ugly gaps on Databricks, one gap each.
+Kostavo is the company behind them: it builds [a governance platform for Databricks workspaces](https://kostavo.com), and the template and the tools are complete without it.
 
 Community project, not affiliated with or endorsed by Databricks, dltHub or dbt Labs.
 

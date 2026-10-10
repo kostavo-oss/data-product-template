@@ -1,0 +1,31 @@
+# This product, in the Open Data Product Standard (ODPS v1.1.0, from Bitol):
+# https://bitol-io.github.io/open-data-product-standard/
+# `ops/ports.py` reads the ports from this file; `mise tasks` lists the contracts tasks.
+apiVersion: v1.1.0
+kind: DataProduct
+id: {{ project_name }}
+name: {{ project_name }}
+version: 0.1.0
+status: draft
+
+# What this product promises. One entry for each port and version. The contract of a port
+# is contracts/output/<name>/v<major version>.odcs.yaml, and its `id` is the contractId.
+outputPorts:
+  - name: {% if include_dbt %}squares{% else %}numbers{% endif %}
+    version: 1.0.0
+    contractId: {{ project_name }}.{% if include_dbt %}squares{% else %}numbers{% endif %}
+
+# What this product reads from other products: nothing yet. An input port looks like this.
+# contracts/input/README.md says what to do after adding one.
+#
+# inputPorts:
+#   - name: transactions
+#     version: 1.0.0
+#     contractId: payments.transactions
+#     authoritativeDefinitions:
+#       # Where the producer keeps this contract: a URL, or a path from this folder.
+#       - type: dataContract
+#         url: https://raw.githubusercontent.com/example-org/payments/main/contracts/output/transactions/v1.odcs.yaml
+#       # Optional: the producer's product file, to see the day the port is withdrawn.
+#       - type: dataProduct
+#         url: https://raw.githubusercontent.com/example-org/payments/main/dataproduct.yaml

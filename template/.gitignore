@@ -9,6 +9,8 @@ mise.local.toml
 dbt/target/
 dbt/dbt_packages/
 dbt/logs/
+# What `mise run contracts:catalog` writes.
+site/
 
 .venv/
 dist/

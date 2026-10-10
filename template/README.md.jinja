@@ -14,6 +14,10 @@ dbt/models/                 the dbt models, reading raw through source('raw', ..
 {%- endif %}
 resources/schemas.yml       raw{% if include_dbt %}, raw_staging, silver{% else %} and raw_staging{% endif %} — the bundle makes them, the job gets their names
 resources/*.job.yml         the job: ingest{% if include_dbt %} → transform{% endif %}
+{%- if include_contracts %}
+dataproduct.yaml            the product and its ports
+contracts/                  what each port promises, one file per version
+{%- endif %}
 mise.toml                   every task; `mise tasks` lists them
 ```
 
@@ -23,7 +27,7 @@ mise.toml                   every task; `mise tasks` lists them
 mise install            # python, uv, the Databricks CLI{% if include_lely %}, lely{% endif %}{% if include_caland %}, caland{% endif %}
 uv sync
 mise run dev            # the example pipeline, into example.duckdb
-mise run check          # lint, format, the pipelines import{% if include_dbt %}, dbt parses{% endif %}
+mise run check          # lint, format, the pipelines import{% if include_dbt %}, dbt parses{% endif %}{% if include_contracts %}, the contracts are valid{% endif %}
 ```
 
 `uv run ingest list` names the pipelines; `uv run ingest run example --count 3` runs one
@@ -112,6 +116,43 @@ options of `ingest run <name>`. It makes its dlt pipeline with
 A `.sql` file in `dbt/models/`, reading raw through `source('raw', '<table>')` (add the
 table to `dbt/models/sources.yml`). `mise run check` parses it, `mise run transform` builds
 it against the dev target, and the job's `transform` task builds it after `ingest`.
+{%- endif %}
+{%- if include_contracts %}
+
+## Contracts
+
+`dataproduct.yaml` lists the product's ports, and every port names a contract: a file that
+says which columns a table has, of which type, and which are never empty. The output port
+`{% if include_dbt %}squares{% else %}numbers{% endif %}` has `contracts/output/{% if include_dbt %}squares{% else %}numbers{% endif %}/v1.odcs.yaml`. It is a promise to whoever reads the
+table, so it changes in the same pull request as the {% if include_dbt %}model{% else %}pipeline{% endif %}, and a change that breaks a
+reader is a new file, `v2.odcs.yaml`, with its own entry in `dataproduct.yaml`. CI
+compares the contract with the base branch and refuses a breaking edit.
+
+```sh
+mise run contracts:lint       # every contract is valid; also part of `mise run check`
+{%- if not include_dbt %}
+mise run contracts:test       # the table `mise run dev` loaded, against its contract
+{%- endif %}
+mise run contracts:catalog    # the contracts as pages, in site/contracts/
+{%- if include_dbt %}
+uv run ops/ports.py dbt --dry-run   # what the contract would write into dbt/models/
+mise run contracts:dbt        # write it: columns, descriptions and tests
+{%- endif %}
+```
+{%- if include_dbt %}
+
+The contract names one server, the deployed table: a dbt model is built on the workspace
+only, so there is no local copy to test and no `contracts:test` task.
+{%- endif %}
+
+To read another product's table, add an input port: `contracts/input/README.md` says how.
+`mise run contracts:pull` keeps the producer's contract as a snapshot, and
+`mise run contracts:check` says whether the producer still keeps it.
+
+`ops/ports.py` does this by running the [Data Contract CLI](https://github.com/datacontract/datacontract-cli)
+at the version it names. The files are in two open standards from Bitol, a Linux
+Foundation project: ODCS for a contract and ODPS for the product. Nothing here needs a
+platform or an account.
 {%- endif %}
 
 A community project, not affiliated with or endorsed by Databricks{% if include_dbt %}, dltHub or dbt
