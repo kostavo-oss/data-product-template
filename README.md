@@ -55,6 +55,7 @@ mise run contracts:lint       # every contract is valid; part of `mise run check
 mise run contracts:test       # the output contracts against the local DuckDB file
 mise run contracts:pull       # fetch the input ports' contracts, as snapshots
 mise run contracts:check      # is what is read still what was pulled
+mise run contracts:dlt        # a dlt schema from each snapshot, for a pipeline to keep
 mise run contracts:catalog    # the contracts as pages
 mise run contracts:edit       # the output contract in an editor, on your own machine
 mise run contracts:dbt        # columns and tests from the contracts into the dbt models
@@ -67,6 +68,14 @@ built on the workspace only, so there is no local copy of it to test.
 `contracts/output/<port>/v<N>.odcs.yaml` is compared with the base branch. An edit that
 breaks a reader (a column removed, a type changed) fails the job: a breaking change is a
 new version file, `v<N+1>.odcs.yaml`. A new file always passes.
+
+**A pipeline keeps what it reads.** `contracts:dlt` writes a dlt schema from every
+snapshot into `src/<package>/schemas/<port>.schema.yaml`: the contract's schema objects
+as tables, their properties as columns with dlt's types, every table frozen. A pipeline
+named after the port takes it with one argument,
+`leeghwater.create_pipeline("<port>", import_schema_path=SCHEMAS)`, and its run fails on a
+row with a column the contract does not have. The contract is frozen in the file, on each
+table; `contracts/input/README.md` in the product has the rest.
 
 **A consumer checks before it reads.** `check` refuses when the producer broke the
 contract or withdrew the version, and warns when the version is marked deprecated. It

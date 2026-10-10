@@ -150,6 +150,17 @@ To read another product's table, add an input port: `contracts/input/README.md` 
 `mise run contracts:pull` keeps the producer's contract as a snapshot, and
 `mise run contracts:check` says whether the producer still keeps it.
 
+`mise run contracts:dlt` writes a dlt schema from every snapshot into
+`src/{{ package_name }}/schemas/`, with every table frozen. A pipeline that loads the port is
+named after it and names the folder, and its run then fails on a row with a column the
+contract does not have:
+
+```python
+SCHEMAS = Path(__file__).parent.parent / "schemas"
+
+p = leeghwater.create_pipeline("<port>", import_schema_path=SCHEMAS)
+```
+
 `ops/ports.py` does this by running the [Data Contract CLI](https://github.com/datacontract/datacontract-cli)
 at the version it names. The files are in two open standards from Bitol, a Linux
 Foundation project: ODCS for a contract and ODPS for the product. Nothing here needs a
