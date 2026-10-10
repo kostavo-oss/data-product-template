@@ -48,10 +48,21 @@ class Stop(Exception):
 def ports(direction: str) -> list[dict]:
     """The input or the output ports of dataproduct.yaml."""
     try:
-        product = yaml.safe_load((ROOT / "dataproduct.yaml").read_text())
-    except (OSError, yaml.YAMLError) as error:
+        text = (ROOT / "dataproduct.yaml").read_bytes()
+    except OSError as error:
         raise Stop(f"dataproduct.yaml: {error}", COULD_NOT_RUN) from None
-    return product.get(f"{direction}Ports") or []
+    return document(text, "dataproduct.yaml").get(f"{direction}Ports") or []
+
+
+def document(text: bytes, where: str) -> dict:
+    """A product file or a contract, read; or a sentence saying it is neither."""
+    try:
+        read = yaml.safe_load(text)
+    except yaml.YAMLError as error:
+        raise Stop(f"{where} is not YAML: {error}", COULD_NOT_RUN) from None
+    if not isinstance(read, dict):
+        raise Stop(f"{where} is not a product file or a contract", COULD_NOT_RUN)
+    return read
 
 
 def contract(direction: str, port: dict) -> Path:
@@ -128,7 +139,7 @@ def lint(args) -> int:
         path = contract("output", port)
         if not path.exists():
             raise Stop(f"the output port {port['name']} has no contract: {shown(path)}")
-        if yaml.safe_load(path.read_text()).get("id") != port["contractId"]:
+        if document(path.read_bytes(), shown(path)).get("id") != port["contractId"]:
             raise Stop(f"{shown(path)}: its id is not the port's contractId")
     return COULD_NOT_RUN if failed else FINE
 
@@ -151,7 +162,7 @@ def pull(args) -> int:
                 "add an authoritativeDefinitions entry of type dataContract"
             )
         text = fetch(where)
-        if yaml.safe_load(text).get("id") != port["contractId"]:
+        if document(text, where).get("id") != port["contractId"]:
             raise Stop(f"{where} is not the contract {port['contractId']}")
         same = path.exists() and path.read_bytes() == text
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -177,7 +188,7 @@ def check_port(port: dict, server: str | None) -> None:
     if product:
         theirs = [
             p
-            for p in yaml.safe_load(fetch(product)).get("outputPorts") or []
+            for p in document(fetch(product), product).get("outputPorts") or []
             if p.get("contractId") == port["contractId"]
             and str(p.get("version")) == str(version)
         ]

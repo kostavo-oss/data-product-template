@@ -224,9 +224,11 @@ file once written.
 - **The CI gate needs no `${{ }}`.** The workflow reads the base branch from
   `GITHUB_BASE_REF`, which the runner sets, and checks out with `fetch-depth: 0` so that
   `origin/<base>` is there. `ci.yml` is now rendered, since the step is conditional.
-- **`_skip_if_exists` names `dataproduct.yaml`, `contracts/**` and `ops/ports.py`.** A
-  product owns them. The cost: a newer pin of the CLI does not reach a product through
-  `copier update`; it is one line to change by hand.
+- **`_skip_if_exists` names `dataproduct.yaml` and `contracts/**`, and not
+  `ops/ports.py`.** The product file and the contracts are the product's own. The script
+  is wiring, like the tasks and the workflows: `copier update` brings a newer pin of the
+  CLI and a fix to a verb. A product that changed the script settles the difference
+  then, as with any wiring.
 - **Removing a version file is not judged.** The gate looks at files that exist. Taking a
   version away is the producer's last step after marking it deprecated, and whether it is
   time is not something a comparison can say.

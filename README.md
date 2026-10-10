@@ -19,7 +19,8 @@ mise run job        # the job: ingest, then transform
 ```
 
 Later, in the product, `uvx copier update` brings the template's next change — to the
-bundle, the job, the tasks and the workflows, never to your pipelines, models or README.
+bundle, the job, the tasks and the workflows, never to your pipelines, models,
+contracts or README.
 
 ## What you get
 

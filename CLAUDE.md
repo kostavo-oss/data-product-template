@@ -13,8 +13,8 @@ been tried on a workspace.
   or folder whose name carries its condition: `{% if include_dbt %}dbt{% endif %}`.
 - Every optional part stays optional, and the product must work without it: `databricks
   bundle deploy` without lely, `databricks secrets` without caland.
-- `_skip_if_exists` names what a product owns (its pipelines, models, README, contracts
-  and `ops/ports.py`); everything
+- `_skip_if_exists` names what a product owns (its pipelines, models, README, product
+  file and contracts); everything
   else is the wiring `copier update` may move. Keep that line: a product that cannot be
   updated is a one-time gift.
 - What the template writes is tried, not read: `tests/` generates the full and the bare

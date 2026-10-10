@@ -18,7 +18,6 @@ _skip_if_exists:
   - "dbt/models/**"
   - dataproduct.yaml
   - "contracts/**"
-  - ops/ports.py
 
 _message_after_copy: |
   {{ project_name }} is written. Next:
