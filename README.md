@@ -6,8 +6,10 @@ and the Kostavo tools around it, each optional: leeghwater runs the pipelines, l
 with a reviewed plan, caland keeps the secrets, and every task is one `mise run` away.
 
 > **Early.** A generated product has been deployed to a workspace, loaded from a laptop,
-> and shaped by its dbt task on serverless; what was tried and what was not is in
-> `spec/README.md`.
+> and shaped by its dbt task on serverless. In one run, on one repository, the GitHub
+> workflows planned on a pull request and applied the reviewed plan on merge. The job's
+> `ingest` task has not finished on a workspace yet. What was tried and what was not is
+> in `spec/README.md`.
 
 ```sh
 uvx copier copy gh:kostavo-oss/data-product-template my-product

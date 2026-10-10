@@ -2,6 +2,9 @@
 .dlt/secrets.toml
 # Your own profile and warehouse: see mise.local.toml.example.
 mise.local.toml
+# A token for a local command: the Data Contract CLI and other tools read it from here.
+.env
+.env.*
 
 # What a local run leaves behind.
 *.duckdb

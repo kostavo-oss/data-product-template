@@ -170,6 +170,8 @@ def test_the_readme_explains_each_part_that_was_included(full, bare):
         assert word not in bare_readme
     assert "names no scope yet" in bare_readme
     assert "names no scope yet" not in full_readme
+    assert "shows a failed `apply`" in full_readme
+    assert "failed" not in bare_readme
 
 
 def test_the_scope_is_a_step_before_the_bundle(full, bare):
@@ -187,3 +189,24 @@ def test_the_scope_is_a_step_before_the_bundle(full, bare):
 
     bare_variables = yaml.safe_load((bare / "databricks.yml").read_text())["variables"]
     assert "secret_scope" not in bare_variables
+
+
+def test_git_ignores_a_file_of_credentials(full, bare, tmp_path):
+    """Tools read a token from `.env`; one `git add` must not publish it."""
+    for project in (full, bare):
+        repository = tmp_path / project.name
+        repository.mkdir()
+        (repository / ".gitignore").write_text((project / ".gitignore").read_text())
+        subprocess.run(["git", "init", "-q", str(repository)], check=True)
+
+        for name in (".env", ".env.local", "mise.local.toml", ".dlt/secrets.toml"):
+            done = subprocess.run(
+                ["git", "check-ignore", "-q", name], cwd=repository, check=False
+            )
+            assert done.returncode == 0, f"{name} is not ignored"
+        done = subprocess.run(
+            ["git", "check-ignore", "-q", "mise.local.toml.example"],
+            cwd=repository,
+            check=False,
+        )
+        assert done.returncode == 1, "the example file is hidden"
