@@ -18,6 +18,8 @@ _skip_if_exists:
   - "dbt/models/**"
   - dataproduct.yaml
   - "contracts/**"
+  - "stevin/**"
+  - "sql/**"
 
 _message_after_copy: |
   {{ project_name }} is written. Next:
@@ -26,7 +28,10 @@ _message_after_copy: |
       mise install && uv sync
       mise run dev          # the example pipeline, into a local DuckDB file
       mise run deploy       # the dev target on your workspace
-      mise run job          # the job: ingest{% if include_dbt %}, then transform{% endif %}
+  {%- if include_stevin and not include_dbt %}
+      mise run tables:apply # the table the job fills, made by stevin
+  {%- endif %}
+      mise run job          # the job: ingest{% if include_dbt or include_stevin %}, then transform{% endif %}
 
   The README has the rest.
 
@@ -69,6 +74,17 @@ include_dbt:
   type: bool
   help: Shape the data with dbt, as a second task of the job
   default: true
+
+include_stevin:
+  type: bool
+  help: Declare tables and access with stevin — the tables dbt does not own, or all of them without dbt
+  default: false
+
+include_access_examples:
+  type: bool
+  help: Write an access model to start from — groups per schema, rows by region, PII by tag
+  default: false
+  when: "{{ include_stevin }}"
 
 include_lely:
   type: bool

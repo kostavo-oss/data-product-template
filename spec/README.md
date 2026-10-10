@@ -61,10 +61,11 @@ fine")*
 
 - **R1 — A product is one `copier copy` away, with or without a terminal, and takes the
   template's next change with `copier update`.** The questions are a name, a catalog, a
-  warehouse, a secret scope, and yes/no for dbt, lely, caland and contracts; `--data` answers them
+  warehouse, a secret scope, and yes/no for dbt, stevin, lely, caland and contracts; `--data` answers them
   without a terminal, and `.copier-answers.yml` in the product remembers them. What a
   product owns — its pipelines, models, README, dlt config — is never touched by an update.
-- **R2 — The schemas are the bundle's.** `raw` and `raw_staging` always; `silver` with dbt.
+- **R2 — The schemas are the bundle's.** `raw` and `raw_staging` always; `silver` with dbt
+  or with stevin.
   The job gets their deployed names by reference, so a target may prefix them and nothing
   in the code knows them.
 - **R3 — One job, two tasks, in order.** `ingest`, a wheel task running the product's own
@@ -433,6 +434,188 @@ in a number and an empty key. It also runs the three refusals of the verb.
 - **A contract kept in a private repository.** `pull` and `check` fetch a URL without
   credentials. A path to a checkout beside the product works today.
 
+## stevin in a product
+
+Added on 2026-10-11, for
+[#5](https://github.com/kostavo-oss/data-product-template/issues/5) and
+[#13](https://github.com/kostavo-oss/data-product-template/issues/13). On 2026-10-07 the
+owner left stevin out of the template; the portfolio review of 2026-10-08 gave it its
+place: the product that does traditional SQL without dbt, and next to dbt the tables dbt
+does not own. Everything in this section was built and run on a laptop. No workspace was
+reached: no plan, no apply, no deploy. Both issues stay open for that half.
+
+With stevin 0.4.0a1 and lely 0.3.1 from PyPI, uv 0.11.15, mise 2026.10.6.
+
+### Decided
+
+**Given to the writer as decided, 2026-10-11:**
+
+- One question, `include_stevin`, off by default and independent of `include_dbt`. All
+  four combinations generate a product: dbt only (as before), stevin only, both, neither.
+- With stevin a product gets `stevin/`: the project file and the specs. stevin takes its
+  targets and variables from the product's `databricks.yml`. There is no second list of
+  targets, and the schemas stay the bundle's.
+- Without dbt, `squares` is a stevin spec and a SQL task in the job fills it after
+  `ingest`, from a `.sql` file that takes its schemas as parameters. With contracts the
+  spec takes its shape from the contract (`from_contract`).
+- With dbt, dbt builds `squares` as before, and a spec without column types puts a tag
+  and a grant on the landed table `numbers`.
+- stevin runs at a deploy and never in the job. The tasks are validate, plan, apply and
+  drift; validate is part of `mise run check`, so `ci.yml` needs no change.
+- A second question, `include_access_examples`, asked only with stevin, writes stevin's
+  three access recipes as files under `stevin/security/`, with a page that names the
+  placeholders and what stays hard.
+
+**What did not hold, and what was done instead:**
+
+- **lely's own `stevin` step cannot be used.** The design was a `stevin` step in
+  `lely.yml` after `bundle`, so that one plan shows both. lely 0.3.1 has that step and
+  says of it `Can't apply yet`: `lely apply` refuses the whole project (the run is
+  below). Instead the product has a step of its own, `ops/tables.py`, a `lely.step.Program`
+  that runs `stevin apply --target <target> --yes` after the bundle. lely's plan shows it
+  as one run and not what it would change; `mise run tables:plan` shows that. So the
+  table changes are not in the plan a pull request reviews. stevin stops by itself before
+  a step that drops something.
+- **With dbt, stevin is no step of the deploy at all.** Its one spec governs a table the
+  job lands. On a new target that table is not there after the deploy, and stevin then
+  stops: `… isn't there yet, and its spec only governs it — whoever owns it makes it
+  first` (`stevin/planning.py`, read, not run). A step would fail every first deploy. So
+  with dbt stevin runs from the tasks, after the job has run once. `lely.yml` gets the
+  `tables` step only with stevin and without dbt.
+- **`owned_elsewhere` cannot name a schema of the bundle.** The design was a pattern for
+  the silver schema (dbt's) and one for the landing schema (dlt's). A key is read as three
+  parts between dots, and `${resources.schemas.silver.name}` has dots of its own, so
+  stevin refuses the key (the run is below). A schema's literal name would be wrong in a
+  target that prefixes it. So the keys name tables, with `*` for the schema:
+  `${catalog}.*.numbers: dlt` and `${catalog}.*.squares: dbt`. A new dbt model needs a
+  line; the README and `AGENTS.md` say so.
+- **Groups per schema is not a stevin spec here.** The schemas are the bundle's, and
+  stevin's plan refuses a spec for a schema the bundle declares (`validate` does not: the
+  run is below). So the grants stand in `resources/schemas.yml`, on `silver`, as
+  comments, with the privileges spelled as a bundle spells them (`USE_SCHEMA`).
+- **The access examples are written and not switched on.** Their specs name groups that
+  no account has. Planned by default they would fail the first apply, and under lely the
+  first deploy. So `stevin/stevin.yml` lists `tables` only, with `security` as a
+  commented line, and `mise run check` validates the examples by path until then.
+- **"Nothing mentions it" has one exception.** `.copier-answers.yml` records
+  `include_stevin: false`, as it records every answer. Every other file of a product
+  without stevin is the same, byte for byte, as before this change.
+
+**By the writer, while building:**
+
+- **stevin is a tool in `mise.toml`, pinned there and nowhere else:**
+  `"pipx:stevin" = "0.4.0a1"`. Every stevin release so far is a pre-release. mise's
+  `latest` finds no version for it; an exact version installs, through uv. The tasks and
+  the step call `stevin` from the PATH. The tests read the pin from the product's
+  `mise.toml` and run that version with `uvx`.
+- **The tasks are `tables:validate`, `tables:plan`, `tables:apply` and `tables:drift`.**
+  `plan`, `apply` and `destroy` are lely's. The three that reach a workspace set
+  `BUNDLE_VAR_warehouse_id=$WAREHOUSE_ID`: stevin asks the Databricks CLI to resolve the
+  bundle, and a bundle whose warehouse has no default does not resolve without it.
+  `tables:apply` asks before it runs; only the step passes `--yes`.
+- **The silver schema is the bundle's with dbt or with stevin**, and `ops/names.py`
+  prints `SILVER` for both.
+- **The output port is `squares` with dbt or with stevin.** Without dbt the table is
+  filled on the workspace only, as a dbt model is. So its contract has the one
+  `databricks` server, and the product has neither `contracts:test` nor `contracts:dbt`.
+- **The SQL file uses named parameter markers:**
+  `IDENTIFIER(:catalog || '.' || :silver_schema || '.squares')`. The job passes
+  `catalog`, `raw_schema` and `silver_schema` by reference. `INSERT OVERWRITE` writes
+  every row on every run, as dbt's table did. The file never makes the table.
+- **The spec for `squares` adds clustering and a tag, and no grant.** A grant names a
+  group, and a group that is not there fails the apply. A grant stands in the spec as a
+  comment. With dbt the spec for `numbers` does name a group, `data_engineers`, as was
+  decided: it is a placeholder, and that spec is applied by hand, after a plan was read.
+- **No `history_schema`.** It would be a schema stevin makes, or a fourth one in the
+  bundle. Without it an apply is not recorded and takes no lock; `stevin.yml` says so.
+- **The examples live in the silver schema**: a mapping table, the row-filter function,
+  and one example table that carries the filter and a column tagged `pii`. The policy
+  that masks by tag is in the page, in Terraform and in SQL, as stevin's recipe has it.
+  The template writes no `.tf` and no policy.
+- **`_skip_if_exists` names `stevin/**` and `sql/**`.** The specs, the project file and
+  the SQL are the product's own. The step, the tasks and the job are wiring.
+
+### Requirements
+
+- **R14 — With `include_stevin`, the tables and the access are specs.** `stevin/stevin.yml`
+  names the bundle and no target. Without dbt: `stevin/tables/squares.yml`, from the
+  contract when there is one; `sql/squares.sql`; a `transform` SQL task after `ingest`;
+  and under lely a `tables` step after `bundle`. With dbt: `stevin/tables/numbers.yml`
+  without column types, and `owned_elsewhere` naming `numbers` as dlt's and `squares` as
+  dbt's. In both: the four `tables:*` tasks, `stevin validate` in `mise run check`, and
+  the rules in `AGENTS.md`. Without `include_stevin` none of it is written.
+- **R15 — With `include_access_examples`, an access model to start from.**
+  `stevin/security/` has the three specs and a page; `resources/schemas.yml` has the
+  schema grants as comments. The specs pass `stevin validate` and are planned only when
+  the product lists the folder.
+
+### Run
+
+On 2026-10-11, on a laptop. Each line is a command and what it printed. The products were
+generated with copier from the working tree: dbt only, neither, stevin only (with lely,
+contracts and the examples, and without all three), and both (the same two ways).
+
+| What | Printed |
+|---|---|
+| the two products without stevin, compared with what `main` generates | the same files with the same bytes, but for `include_stevin: false` in `.copier-answers.yml` |
+| `mise exec pipx:stevin@0.4.0a1 -- stevin --version`, mise's own folders in a scratch place | `Installed 2 executables: deltaplan, stevin`, then `stevin 0.4.0a1`; exit 0 |
+| the same with `pipx:stevin@latest` | `no versions found for pipx:stevin`; exit 1 |
+| `uvx --from stevin==0.4.0a1 stevin --version` | `stevin 0.4.0a1`; exit 0 |
+| `stevin validate -c stevin/stevin.yml`, stevin only, with the contract and without | `Not settled here: ${resources.schemas.silver.name}. …`, then `1 spec OK.`; exit 0 |
+| the same with `-t prod` | `1 spec OK.`; exit 0 |
+| the same, both, for the default target and for `prod` | `Not settled here: ${resources.schemas.raw.name}. …` and `1 spec OK.`; then `1 spec OK.`; exit 0 |
+| the table from the contract compared with the table the spec declares, as stevin loads them | the same columns, types, key, comments and clustering |
+| the spec with its contract removed | `stevin/tables/squares.yml:6:1: the data contract ../../contracts/output/squares/v1.odcs.yaml can't be read (No such file or directory)`; exit 1 |
+| both, with `owned_elsewhere` left out | `warning: main.<product>_raw.numbers has no columns' types, so it governs a table another tool makes — nothing here says whose; the plan accepts it if the table is a dlt pipeline's, and otherwise asks you to name the owner in owned_elsewhere`; exit 0 |
+| `owned_elsewhere` with the key `${catalog}.${resources.schemas.raw.name}.*` | `owned_elsewhere is keyed catalog.schema.table, with * for any part — e.g. ${catalog}.silver.* — not '${catalog}.${resources.schemas.raw.name}.*'`; exit 1 |
+| both, with a spec for `squares` added | `error: main.<product>.squares is dbt's: put grants and tags in dbt's config, and use a schema-level policy for masks`; exit 1 |
+| both, with column types in the spec for `numbers` | `error: … numbers is dlt's: leave the columns' types out to govern it (tags, grants, masks, a row filter), or take it out of owned_elsewhere`; exit 1 |
+| `stevin validate -c stevin/stevin.yml -t dev stevin/security/*.yml`, and `-t prod` | `3 specs OK.`; exit 0 |
+| the same without `-t` | `undefined variable ${catalog} (known: none defined for this target)`; exit 1: files named on the command line get no default target |
+| the examples switched on in `stevin.yml`, default target and `prod` | `4 specs OK.`; exit 0 |
+| the examples without `orders.yml` | `error: main.<product>.by_region is named by no column mask or row filter in this project: a function spec is only for a column mask or row filter; …`; exit 1 |
+| a schema spec for the bundle's `silver`, `stevin validate -t prod` | `1 spec OK.`; exit 0: `validate` does not refuse it, the plan does (`stevin/planning.py`, read) |
+| `lely steps` | `stevin  built-in`, `Tables, views, functions and grants, planned by stevin. Can't apply yet.`, `can    plan` |
+| lely's own check before an apply (`lely.running.check_applies`), on a config with `uses: stevin` | ``Refused: Step `tables` uses `stevin`, which can plan and can't apply yet. Nothing was run.`` |
+| `lely validate`, stevin only | `2 steps`, `tables  takes and gives nothing`; exit 0 (3 steps with a secret scope) |
+| `uv run ops/tables.py --help` | the step's commands: `plan`, `apply`, `destroy`, `status`, `check`; exit 0 |
+| the step's plan, held to lely's rules by `lely.testing.check_plan` | one change: `tables`, `run`, `runs stevin apply --config stevin/stevin.yml --target dev --yes` |
+| the step's apply, with a stand-in for `stevin` first on the PATH | the stand-in was given `apply --config stevin/stevin.yml --target dev --yes`, in the product's folder, with `LELY_TARGET=dev` |
+| the job of all six products, read as YAML | `ingest` then `transform`: a `sql_task` with `depends_on: ingest` without dbt, a `dbt_task` with dbt, and one task with neither |
+| every command of each product's `check` task, in the four products with stevin, after `uv sync` | exit 0 each: ruff, the format check, `ingest list`, `dbt parse` with dbt, the contracts lint with contracts, `stevin validate` |
+
+`tests/test_stevin.py` runs most of this again on every change.
+
+### Not yet
+
+All of it for one reason: it takes a workspace, and none was reached.
+
+- **`stevin plan`, `apply` and `drift` on a product**, from the tasks or from the step.
+  Nothing has shown that stevin resolves this bundle through the Databricks CLI, names
+  the schemas as a development target deploys them, or makes `squares`.
+- **The SQL task.** The file's `IDENTIFIER(:catalog || …)` with named parameter markers,
+  the task's `parameters`, and the relative `file.path` are written from the Databricks
+  documentation. The task has not run, and the bundle has not been validated by the CLI.
+- **The `tables` step under lely on a workspace**: `lely plan` and `lely apply` with it,
+  and the `plan` and `apply` workflows of a product that has it. The step's words were
+  seen by a stand-in only.
+- **The table changes in the reviewed plan.** That waits for lely's own `stevin` step,
+  which is parked in lely.
+- **With dbt: the tag and the grant on `numbers`**, the refusal on a new target before
+  the job has run, and stevin telling dbt's table from its own on a workspace.
+- **A grant taking effect**, on a table or on a schema. The grants in
+  `resources/schemas.yml` are comments, and their spelling has not met a deploy.
+- **The access examples applied**: the row filter filtering, the mapping table's seed
+  (stevin's docs say no workspace has taken a seed from stevin yet), the tag on the
+  column, and the policy masking it. Issue #13 is done when the row filter and the
+  tagged table have been applied once.
+- **A history schema**, and with it the lock against two applies at once.
+- **`copier update` on a product that takes stevin later.** The contract of a product
+  without dbt moves from `numbers` to `squares` when stevin is switched on, and
+  `contracts/**` is the product's own.
+- **The tasks through mise itself.** The commands behind them were run by hand, as
+  before; `mise install` of the pinned stevin was seen in a scratch place only.
+
 ## Still open
 
 1. **The job's `ingest` task, end to end,** on a workspace whose serverless compute can
@@ -444,7 +627,10 @@ in a number and an empty key. It also runs the three refusals of the verb.
 4. **The tasks through mise, other than `check` and `dev`.** Those two ran on a GitHub
    runner after `jdx/mise-action` installed the tools; the others' commands were run by
    hand, or by the workflows without mise.
-5. **A release**, after the above, on the owner's word.
+5. **stevin on a workspace**: every line under "stevin in a product", "Not yet".
+   [#5](https://github.com/kostavo-oss/data-product-template/issues/5),
+   [#13](https://github.com/kostavo-oss/data-product-template/issues/13)
+6. **A release**, after the above, on the owner's word.
 
 No longer open since 2026-10-10: a product as a GitHub repository, with the plan and
 apply workflows run once (one repository, one pull request, one merge), and `mise install`

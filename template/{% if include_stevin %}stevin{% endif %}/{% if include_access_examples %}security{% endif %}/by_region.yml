@@ -1,0 +1,15 @@
+# Rows by region, 2 of 3: the row filter. True for a row when the user is in a group of
+# the row's region, and for every row when the user is in `sales_leads`.
+# `is_account_group_member` asks the account's groups, which is what Unity Catalog uses.
+# A function spec is valid only because a row filter names it: orders.yml does.
+function: ${catalog}.${resources.schemas.silver.name}.by_region
+comment: Rows of a region, for its members; everything for sales_leads
+parameters:
+  - {name: region, type: string}
+returns: boolean
+body: |
+  is_account_group_member('sales_leads')
+  OR EXISTS (
+    SELECT 1 FROM ${catalog}.${resources.schemas.silver.name}.region_members m
+    WHERE m.region = region AND is_account_group_member(m.group_name)
+  )

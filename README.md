@@ -2,8 +2,9 @@
 
 **A data product for Databricks, ready to start from.** A template for a Databricks Asset
 Bundle: dlt lands the data, dbt shapes it, one job runs both, the schemas are the bundle's —
-and the Kostavo tools around it, each optional: leeghwater runs the pipelines, lely deploys
-with a reviewed plan, caland keeps the secrets, and every task is one `mise run` away.
+and the Kostavo tools around it, each optional: leeghwater runs the pipelines, stevin keeps
+the tables and the access, lely deploys with a reviewed plan, caland keeps the secrets, and
+every task is one `mise run` away.
 
 > **Early.** A generated product has been deployed to a workspace, loaded from a laptop,
 > and shaped by its dbt task on serverless. In one run, on one repository, the GitHub
@@ -33,6 +34,7 @@ contracts or README.
   resources/<product>.job.yml    ingest (wheel task) → transform (dbt task)
   src/<package>/pipelines/       dlt pipelines, run by leeghwater
   dbt/                           dbt models, reading raw through source('raw', ...)
+  stevin/, sql/                  with stevin: the tables as specs, and the SQL that fills them
   dataproduct.yaml, contracts/   the product's ports, and what each one promises
   ops/ports.py                   lint, test, pull and check the contracts
   lely.yml, .github/workflows/   plan on a pull request, apply on merge
@@ -41,8 +43,37 @@ contracts or README.
 ```
 
 The questions: a name, a catalog, a warehouse, a secret scope, and whether to include dbt,
-lely, caland and contracts. `--data name=value` or a data file answers them without a terminal, and
+stevin, lely, caland and contracts. `--data name=value` or a data file answers them without a terminal, and
 `.copier-answers.yml` in the product remembers them.
+
+## Tables and access, with stevin
+
+[stevin](https://kostavo-oss.github.io/tools/stevin/) plans and applies the Unity Catalog
+tables and the access that a transformation tool does not own. It is off by default
+(`include_stevin`), and it does one of two things.
+
+**Without dbt, it is the product that does traditional SQL.** The table `squares` is a
+spec in `stevin/tables/`. stevin makes and migrates it at a deploy, and a SQL task in the
+job fills it after `ingest`, from a `.sql` file that takes its schemas as parameters. With
+contracts, the spec takes the table's shape from the contract.
+
+**Next to dbt, it keeps what dbt does not own.** dbt builds `squares` as before. A spec
+without column types puts a tag and a grant on the table dlt lands, and
+`stevin/stevin.yml` says which tables are dbt's, so that a spec for one is refused.
+
+```sh
+mise run tables:validate    # the specs, with no workspace; part of `mise run check`
+mise run tables:plan        # what would change on the dev target
+mise run tables:apply       # the plan, shown, and run after a yes
+mise run tables:drift       # does the target still match the specs
+```
+
+stevin takes its targets and variables from the product's `databricks.yml`, and the
+schemas stay the bundle's. With `include_access_examples` the product also gets
+`stevin/security/`: stevin's three
+[access recipes](https://kostavo-oss.github.io/tools/stevin/access-recipes/) as files to
+edit, with a page that says which names are placeholders. None of this has been applied
+to a workspace yet: `spec/README.md` has what was run and what was not.
 
 ## Contracts between products
 
@@ -64,7 +95,8 @@ mise run contracts:dbt        # columns and tests from the contracts into the db
 ```
 
 Without dbt the product gets `contracts:test` and with dbt `contracts:dbt`: a dbt model is
-built on the workspace only, so there is no local copy of it to test.
+built on the workspace only, so there is no local copy of it to test. The same holds for
+the table a SQL task fills, so a product with stevin and no dbt gets neither.
 
 **CI holds the promise.** On a pull request, every existing
 `contracts/output/<port>/v<N>.odcs.yaml` is compared with the base branch. An edit that

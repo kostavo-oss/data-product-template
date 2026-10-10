@@ -51,6 +51,21 @@ resources:
             commands:
               - "dbt deps"
               - "dbt build --vars '{raw_schema: ${resources.schemas.raw.name}}'"
+{%- elif include_stevin %}
+
+        - task_key: transform
+          depends_on:
+            - task_key: ingest
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../sql/squares.sql
+            # The file names no catalog and no schema: it gets them here, by the names
+            # this target deployed. stevin makes the table it writes (stevin/tables/).
+            parameters:
+              catalog: ${var.catalog}
+              raw_schema: ${resources.schemas.raw.name}
+              silver_schema: ${resources.schemas.silver.name}
 {%- endif %}
 
       environments:

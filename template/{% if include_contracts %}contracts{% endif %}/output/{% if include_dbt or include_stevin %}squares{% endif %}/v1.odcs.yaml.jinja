@@ -1,7 +1,11 @@
 # What the output port `squares` promises, in the Open Data Contract Standard (ODCS
-# v3.2.0, from Bitol). It describes the dbt model dbt/models/squares.sql.
+# v3.2.0, from Bitol). It describes {% if include_dbt %}the dbt model dbt/models/squares.sql{% else %}the table the job's `transform` task fills{% endif %}.
+{%- if include_stevin and not include_dbt %}
+# stevin makes that table from this file: stevin/tables/squares.yml takes its columns,
+# types, key and descriptions from here.
+{%- endif %}
 #
-# A promise: change it together with the model, in one pull request. A change that breaks
+# A promise: change it together with the {% if include_dbt %}model{% else %}SQL{% endif %}, in one pull request. A change that breaks
 # a reader (a column removed, a type changed) is a new file, v2.odcs.yaml, and a second
 # entry for the port in dataproduct.yaml. CI refuses a breaking edit to this file.
 apiVersion: v3.2.0
@@ -35,7 +39,7 @@ schema:
         logicalType: number
         physicalType: double
 
-# Where the table is. A dbt model is built on the workspace only, so there is one server.
+# Where the table is. {% if include_dbt %}A dbt model{% else %}The table{% endif %} is built on the workspace only, so there is one server.
 # The names differ per target, so they are variables: the Data Contract CLI fills them from
 # the environment, and uses what stands after `:-` when a variable is not set. Those are
 # the names of the prod target. `uv run python ops/names.py` prints SILVER for a target.

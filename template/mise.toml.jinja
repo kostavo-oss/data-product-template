@@ -9,6 +9,11 @@ databricks-cli = "latest"
 {%- if include_lely %}
 "pipx:lely" = "latest"
 {%- endif %}
+{%- if include_stevin %}
+# Pinned, and changed here and nowhere else. Every stevin release so far is a
+# pre-release, and "latest" finds none of those.
+"pipx:stevin" = "0.4.0a1"
+{%- endif %}
 {%- if include_caland %}
 "pipx:caland" = "latest"
 {%- endif %}
@@ -28,7 +33,7 @@ description = "Run the example pipeline into a local DuckDB file"
 run = "uv run ingest run example"
 
 [tasks.check]
-description = "The gate before a commit: lint, format, the pipelines import{% if include_dbt %}, dbt parses{% endif %}{% if include_contracts %}, the contracts are valid{% endif %}"
+description = "The gate before a commit: lint, format, the pipelines import{% if include_dbt %}, dbt parses{% endif %}{% if include_contracts %}, the contracts are valid{% endif %}{% if include_stevin %}, the table specs are valid{% endif %}"
 run = [
   "uv run ruff check .",
   "uv run ruff format --check .",
@@ -38,6 +43,12 @@ run = [
 {%- endif %}
 {%- if include_contracts %}
   "uv run ops/ports.py lint",
+{%- endif %}
+{%- if include_stevin %}
+  "stevin validate -c stevin/stevin.yml",
+{%- if include_access_examples %}
+  "stevin validate -c stevin/stevin.yml -t $TARGET stevin/security/*.yml",
+{%- endif %}
 {%- endif %}
 ]
 
@@ -57,7 +68,7 @@ run = "rm -rf dist site *.duckdb *.duckdb.wal .ruff_cache dbt/target dbt/dbt_pac
 [tasks."contracts:lint"]
 description = "Check that every contract is valid and every output port has its own"
 run = "uv run ops/ports.py lint"
-{%- if not include_dbt %}
+{%- if not (include_dbt or include_stevin) %}
 
 [tasks."contracts:test"]
 description = "Test the output contracts against the local DuckDB file (after: mise run dev)"
@@ -137,6 +148,33 @@ export DBT_HTTP_PATH="/sql/1.0/warehouses/$WAREHOUSE_ID" DBT_CATALOG="$CATALOG" 
 uv run --group dev dbt build --project-dir dbt --profiles-dir dbt --target laptop \
   --vars "{raw_schema: $RAW}" "$@"
 '''
+{%- endif %}
+{%- if include_stevin %}
+
+# ── stevin: the tables and the access ─────────────────────────────────────────
+# The specs are in stevin/. stevin takes the target, the workspace and the variables from
+# databricks.yml, and asks the Databricks CLI what the target deploys its schemas as.
+{%- if include_dbt %}
+# The first apply comes after the first run of the job: the landed table has to be there.
+{%- else %}
+# The first apply comes after the first deploy and before the first run of the job.
+{%- endif %}
+
+[tasks."tables:validate"]
+description = "Check the table specs here, with no workspace; part of `mise run check`"
+run = "stevin validate -c stevin/stevin.yml"
+
+[tasks."tables:plan"]
+description = "Show what the specs would change on the dev target; change nothing"
+run = "BUNDLE_VAR_warehouse_id=$WAREHOUSE_ID stevin plan -c stevin/stevin.yml -t $TARGET -p $DATABRICKS_CONFIG_PROFILE"
+
+[tasks."tables:apply"]
+description = "Plan, show, ask, and make the dev target's tables and access match the specs"
+run = "BUNDLE_VAR_warehouse_id=$WAREHOUSE_ID stevin apply -c stevin/stevin.yml -t $TARGET -p $DATABRICKS_CONFIG_PROFILE"
+
+[tasks."tables:drift"]
+description = "Say whether the dev target still matches the specs: exits 2 when it does not"
+run = "BUNDLE_VAR_warehouse_id=$WAREHOUSE_ID stevin drift -c stevin/stevin.yml -t $TARGET -p $DATABRICKS_CONFIG_PROFILE"
 {%- endif %}
 {%- if include_lely %}
 

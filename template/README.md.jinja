@@ -1,9 +1,11 @@
 # {{ project_name }}
 
 A data product on Databricks. [dlt](https://dlthub.com) lands the data{% if include_dbt %}, [dbt](https://getdbt.com)
-shapes it{% endif %}, one job runs {% if include_dbt %}both{% else %}it{% endif %}, and the schemas are the bundle's. Made with
+shapes it{% elif include_stevin %}, a SQL task
+shapes it{% endif %}, one job runs {% if include_dbt or include_stevin %}both{% else %}it{% endif %}, and the schemas are the bundle's. Made with
 [data-product-template](https://github.com/kostavo-oss/data-product-template), run with
-[leeghwater](https://github.com/kostavo-oss/tools/tree/main/packages/leeghwater){% if include_lely %}, deployed with
+[leeghwater](https://github.com/kostavo-oss/tools/tree/main/packages/leeghwater){% if include_stevin %}, its tables and access declared with
+[stevin](https://kostavo-oss.github.io/tools/stevin/){% endif %}{% if include_lely %}, deployed with
 [lely](https://github.com/kostavo-oss/tools/tree/main/packages/lely){% endif %}{% if include_caland %}, its secrets kept with
 [caland](https://github.com/kostavo-oss/tools/tree/main/packages/caland){% endif %}.
 
@@ -11,9 +13,14 @@ shapes it{% endif %}, one job runs {% if include_dbt %}both{% else %}it{% endif 
 src/{{ package_name }}/pipelines/   the dlt pipelines: one function each, marked @pipeline
 {%- if include_dbt %}
 dbt/models/                 the dbt models, reading raw through source('raw', ...)
+{%- elif include_stevin %}
+sql/                        the SQL the job runs, with no schema name in it
 {%- endif %}
-resources/schemas.yml       raw{% if include_dbt %}, raw_staging, silver{% else %} and raw_staging{% endif %} — the bundle makes them, the job gets their names
-resources/*.job.yml         the job: ingest{% if include_dbt %} → transform{% endif %}
+{%- if include_stevin %}
+stevin/                     the tables {% if include_dbt %}dbt does not own{% else %}and who may read them{% endif %}, as specs
+{%- endif %}
+resources/schemas.yml       raw{% if include_dbt or include_stevin %}, raw_staging, silver{% else %} and raw_staging{% endif %} — the bundle makes them, the job gets their names
+resources/*.job.yml         the job: ingest{% if include_dbt or include_stevin %} → transform{% endif %}
 {%- if include_contracts %}
 dataproduct.yaml            the product and its ports
 contracts/                  what each port promises, one file per version
@@ -24,10 +31,10 @@ mise.toml                   every task; `mise tasks` lists them
 ## Here, with nothing but Python
 
 ```sh
-mise install            # python, uv, the Databricks CLI{% if include_lely %}, lely{% endif %}{% if include_caland %}, caland{% endif %}
+mise install            # python, uv, the Databricks CLI{% if include_lely %}, lely{% endif %}{% if include_stevin %}, stevin{% endif %}{% if include_caland %}, caland{% endif %}
 uv sync
 mise run dev            # the example pipeline, into example.duckdb
-mise run check          # lint, format, the pipelines import{% if include_dbt %}, dbt parses{% endif %}{% if include_contracts %}, the contracts are valid{% endif %}
+mise run check          # lint, format, the pipelines import{% if include_dbt %}, dbt parses{% endif %}{% if include_contracts %}, the contracts are valid{% endif %}{% if include_stevin %}, the table specs are valid{% endif %}
 ```
 
 `uv run ingest list` names the pipelines; `uv run ingest run example --count 3` runs one
@@ -41,7 +48,13 @@ Copy `mise.local.toml.example` to `mise.local.toml` and fill in your profile fro
 
 ```sh
 mise run deploy         # the schemas, the job and the wheel, prefixed with your name
+{%- if include_stevin and not include_dbt %}
+mise run tables:apply   # the table the job fills: stevin plans, shows, asks, makes it
+{%- endif %}
 mise run job            # the job, on the workspace
+{%- if include_stevin and include_dbt %}
+mise run tables:apply   # tags and grants on the table the job landed, after a look
+{%- endif %}
 mise run ingest -- example    # a pipeline from here, into the dev target's schemas
 {%- if include_dbt %}
 mise run transform      # dbt from here, against the same schemas, with the CLI's sign-in
@@ -66,6 +79,76 @@ as a secret. The first push to `main` shows a failed `apply`, because `apply` on
 a plan that was reviewed on a pull request; the first pull request puts that right.
 
 `databricks bundle deploy -t prod` works without lely; lely adds the plan and the review.
+{%- if include_stevin and not include_dbt %}
+
+The tables are a step of the same deploy: `tables` in `lely.yml`, after `bundle`, runs
+`stevin apply` (`ops/tables.py`). lely's plan shows that step as one run and not what it
+would change; `mise run tables:plan` shows that.
+{%- elif include_stevin %}
+
+stevin is no step of this deploy. Its one spec governs a table the job lands, and that
+table is not there when a new target is first deployed. `mise run tables:apply` runs it,
+after the job has run once.
+{%- endif %}
+{%- endif %}
+{%- if include_stevin %}
+
+## Tables and access: stevin
+
+[stevin](https://kostavo-oss.github.io/tools/stevin/) keeps the tables and the access
+{% if include_dbt %}that dbt does not own{% else %}of this product{% endif %}. A spec in `stevin/tables/` says what a table should be; stevin
+compares that with the workspace, shows the difference as a plan, and applies it.
+
+```sh
+mise run tables:validate    # the specs, checked here; also part of `mise run check`
+mise run tables:plan        # what would change on the dev target; changes nothing
+mise run tables:apply       # the plan, shown, and run after a yes
+mise run tables:drift       # does the target still match the specs
+```
+
+stevin runs at a deploy and never in the job. The job only reads and writes rows.
+{%- if include_dbt %}
+
+**What is stevin's here.** dbt builds `squares` and owns it: its grants and tags go in
+dbt's config, and stevin refuses a spec for it. dlt lands `numbers` and owns its shape.
+`stevin/tables/numbers.yml` names no column types, so it only governs that table: a tag
+and a grant. `stevin/stevin.yml` says whose table is whose, and a new dbt model gets a
+line there. The spec's group is a placeholder: replace it with a group of the account
+before the first apply. The first apply comes after the first run of the job, because
+stevin does not make a table it does not shape.
+{%- else %}
+
+**Where a table's shape lives.** `stevin/tables/squares.yml` is the table `squares`.
+{%- if include_contracts %}
+Its columns, types, key and descriptions come from the contract,
+`contracts/output/squares/v1.odcs.yaml`: a change to the shape is a change there, and
+the spec adds the clustering, the tags and the grants.
+{%- else %}
+Its columns, types and key are in that file, with the clustering, the tags and the
+grants.
+{%- endif %}
+`sql/squares.sql` fills the table in the job's `transform` task and never makes it. The
+first apply comes after the first deploy and before the first run of the job.
+
+**Add a table.** A spec in `stevin/tables/`, a `.sql` file in `sql/` that writes its
+rows, and a task for the file in `resources/{{ project_name }}.job.yml`. The file takes the
+catalog and the schemas as parameters and names none.
+{%- endif %}
+
+**What is not stevin's.** The schemas are the bundle's (`resources/schemas.yml`), with
+their grants: a spec names one as `${resources.schemas.<key>.name}` and stevin makes
+none. The targets and the variables are the bundle's too. Groups come from the identity
+provider, and stevin cannot make one. Policies that mask by tag are written in Terraform
+or SQL.
+
+stevin is pinned in `mise.toml`, under `[tools]`: every release so far is a pre-release.
+{%- if include_access_examples %}
+
+**An access model to start from** is in `stevin/security/`: groups per schema, rows by
+region, PII by tag. Its specs are checked by `mise run check` and are not planned until
+`stevin/stevin.yml` lists the folder. `stevin/security/README.md` says what to replace
+first.
+{%- endif %}
 {%- endif %}
 
 ## Secrets
@@ -124,14 +207,14 @@ it against the dev target, and the job's `transform` task builds it after `inges
 
 `dataproduct.yaml` lists the product's ports, and every port names a contract: a file that
 says which columns a table has, of which type, and which are never empty. The output port
-`{% if include_dbt %}squares{% else %}numbers{% endif %}` has `contracts/output/{% if include_dbt %}squares{% else %}numbers{% endif %}/v1.odcs.yaml`. It is a promise to whoever reads the
-table, so it changes in the same pull request as the {% if include_dbt %}model{% else %}pipeline{% endif %}, and a change that breaks a
+`{% if include_dbt or include_stevin %}squares{% else %}numbers{% endif %}` has `contracts/output/{% if include_dbt or include_stevin %}squares{% else %}numbers{% endif %}/v1.odcs.yaml`. It is a promise to whoever reads the
+table, so it changes in the same pull request as the {% if include_dbt %}model{% elif include_stevin %}SQL{% else %}pipeline{% endif %}, and a change that breaks a
 reader is a new file, `v2.odcs.yaml`, with its own entry in `dataproduct.yaml`. CI
 compares the contract with the base branch and refuses a breaking edit.
 
 ```sh
 mise run contracts:lint       # every contract is valid; also part of `mise run check`
-{%- if not include_dbt %}
+{%- if not (include_dbt or include_stevin) %}
 mise run contracts:test       # the table `mise run dev` loaded, against its contract
 {%- endif %}
 mise run contracts:catalog    # the contracts as pages, in site/contracts/
@@ -145,6 +228,11 @@ mise run contracts:dbt        # write it: columns, descriptions and tests
 
 The contract names one server, the deployed table: a dbt model is built on the workspace
 only, so there is no local copy to test and no `contracts:test` task.
+{%- elif include_stevin %}
+
+The contract names one server, the deployed table: `squares` is filled on the workspace
+only, so there is no local copy to test and no `contracts:test` task. stevin makes the
+table from the same file, so its shape is written once.
 {%- endif %}
 
 To read another product's table, add an input port: `contracts/input/README.md` says how.

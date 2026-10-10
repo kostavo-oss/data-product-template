@@ -11,9 +11,9 @@ status: draft
 # What this product promises. One entry for each port and version. The contract of a port
 # is contracts/output/<name>/v<major version>.odcs.yaml, and its `id` is the contractId.
 outputPorts:
-  - name: {% if include_dbt %}squares{% else %}numbers{% endif %}
+  - name: {% if include_dbt or include_stevin %}squares{% else %}numbers{% endif %}
     version: 1.0.0
-    contractId: {{ project_name }}.{% if include_dbt %}squares{% else %}numbers{% endif %}
+    contractId: {{ project_name }}.{% if include_dbt or include_stevin %}squares{% else %}numbers{% endif %}
 
 # What this product reads from other products: nothing yet. An input port looks like this.
 # contracts/input/README.md says what to do after adding one.

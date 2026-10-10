@@ -12,7 +12,8 @@ been tried on a workspace.
   workflows that use `${{ }}` are copied as they are. An optional part is a file
   or folder whose name carries its condition: `{% if include_dbt %}dbt{% endif %}`.
 - Every optional part stays optional, and the product must work without it: `databricks
-  bundle deploy` without lely, `databricks secrets` without caland.
+  bundle deploy` without lely, `databricks secrets` without caland. `include_dbt` and
+  `include_stevin` are independent: all four combinations are generated and checked.
 - `_skip_if_exists` names what a product owns (its pipelines, models, README, product
   file and contracts); everything
   else is the wiring `copier update` may move. Keep that line: a product that cannot be

@@ -1,0 +1,28 @@
+# /// script
+# dependencies = ["lely>=0.3"]
+# ///
+"""The tables, as a step of the deploy: after the bundle, `stevin apply` makes and
+migrates what stevin/ declares, so the table is there before the job's first run.
+
+Under lely it is the step `tables` of lely.yml. lely's plan shows it as one run; what
+that run would change is `mise run tables:plan`. stevin stops before a step that drops
+something, and the plan it shows says so.
+
+    uv run ops/tables.py --help
+"""
+
+from lely.step import Context, Program
+
+
+class Tables(Program):
+    """Makes and migrates the tables in stevin/ with `stevin apply`."""
+
+    def command(self, ctx: Context) -> list[str]:
+        # stevin is on the PATH from mise.toml, at the version pinned there. It plans
+        # against the workspace as it is now, and --yes runs that plan without asking.
+        config = "stevin/stevin.yml"
+        return ["stevin", "apply", "--config", config, "--target", ctx.target, "--yes"]
+
+
+if __name__ == "__main__":
+    Tables.main()

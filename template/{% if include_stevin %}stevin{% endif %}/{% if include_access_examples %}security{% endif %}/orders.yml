@@ -1,0 +1,17 @@
+# An example table, to show two things on. Replace it with a table of your own.
+# Rows by region, 3 of 3: `row_filter` names the function, so a new table is made with
+# the filter already on.
+# PII by tag: the column with a person's e-mail carries the tag `pii`. stevin sets the
+# tag. What masks it is one policy on the schema, which stevin never writes: README.md.
+table: ${catalog}.${resources.schemas.silver.name}.orders
+comment: An example for the access recipes
+columns:
+  - {name: order_id, type: bigint, nullable: false}
+  - {name: region, type: string, nullable: false}
+  - {name: customer_email, type: string, tags: {pii: email}}
+  - {name: amount, type: "decimal(18,2)"}
+constraints:
+  - primary_key: [order_id]
+row_filter:
+  function: ${catalog}.${resources.schemas.silver.name}.by_region
+  columns: [region]
