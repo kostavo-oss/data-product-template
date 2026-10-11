@@ -15,7 +15,9 @@ def example(count: int = 10):
     """Load a few numbers and their squares."""
     # Not dlt.pipeline() and not pipeline.run(): where a run loads is the run's to say.
     # On your laptop that is a local DuckDB file, in the job the schema the bundle deployed.
-    p = leeghwater.create_pipeline("example")
+    # The name starts with the product's: dlt keeps a pipeline's state by its name, in
+    # your home folder, and another product on the same laptop has an example too.
+    p = leeghwater.create_pipeline("{{ package_name }}_example")
     return leeghwater.run(p, numbers(count))
 
 

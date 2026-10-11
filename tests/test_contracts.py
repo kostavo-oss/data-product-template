@@ -201,13 +201,15 @@ def test_the_contract_describes_what_the_example_makes(full, landed):
 
 
 def test_the_servers_are_the_local_file_and_the_deployed_table(full, landed):
-    # Holds CON-3.
+    # Holds CON-3, DLT-3.
     servers = yaml.safe_load((landed / NUMBERS).read_text())["servers"]
     assert [(s["server"], s["type"]) for s in servers] == [
         ("local", "duckdb"),
         ("databricks", "databricks"),
     ]
-    assert servers[0]["database"] == "example.duckdb"
+    # The file and the schema the example loads into here, named after the product.
+    assert servers[0]["database"] == "landed_example.duckdb"
+    assert servers[0]["schema"] == "landed_example_dataset"
     assert servers[1]["catalog"] == "${CATALOG:-main}"
     assert servers[1]["schema"] == "${RAW:-landed_raw}"
 

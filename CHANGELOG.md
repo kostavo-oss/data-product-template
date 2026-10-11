@@ -28,6 +28,17 @@ the release it was made from to the newest one.
   and leave the dbt line as it was when `stevin/security/` is switched on: its tables
   are stevin's own and stand in `silver`. The lines of 0.1.0 keep working with stevin
   0.4.0a2.
+- In a new product the example's dlt pipeline is named `<package>_example`, no longer
+  `example`, so two products on one laptop no longer load into each other's file. It
+  loads into `<package>_example.duckdb`. A product that exists keeps its name:
+  `src/**` and `contracts/**` are the product's, and the update changes neither. To take
+  it by hand, give `create_pipeline` the new name in `src/<package>/pipelines/example.py`
+  and, with contracts and without dbt and stevin, change the `local` server in
+  `contracts/output/numbers/v1.odcs.yaml` to `database: <package>_example.duckdb` and
+  `schema: <package>_example_dataset`. A new name is a new pipeline to dlt: on the
+  laptop the next `mise run dev` is a first run into the new file, and
+  `~/.dlt/pipelines/example/` and `example.duckdb` can be deleted. What the renamed
+  pipeline does on its first run in the job has not been tried.
 
 ## [0.1.0]
 

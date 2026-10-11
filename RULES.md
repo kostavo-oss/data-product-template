@@ -123,6 +123,12 @@ product gets, `REL` a release of the template.
 - **DLT-2** — The example pipeline makes its own rows and needs no source, no secret and
   no workspace: the command behind `mise run dev` loads it into a local DuckDB file.
   Held by: `tests/test_generated_project.py::test_the_example_runs_here_into_duckdb`.
+- **DLT-3** — The example's dlt pipeline is named after the product: `<package>_example`.
+  dlt keeps a pipeline's state by its name, for every project on a machine together, so
+  two products on one laptop each load their example into a file in their own folder,
+  `<package>_example.duckdb`, and each one's `contracts:test` reads its own.
+  Held by: `tests/test_generated_project.py::test_two_products_on_one_laptop_each_load_into_their_own_file`,
+  `tests/test_contracts.py::test_the_servers_are_the_local_file_and_the_deployed_table`.
 
 ## DBT — the dbt project
 

@@ -88,3 +88,8 @@ Every rule comes with its reason. Keep a rule when the reason holds; say so when
   running anything.
 - **Deleting the DuckDB file does not start a pipeline over.** dlt keeps a pipeline's state
   under `~/.dlt/pipelines/<name>/`; delete that too.
+- **The name a pipeline gives `create_pipeline` starts with `{{ package_name }}_`.** dlt keeps
+  that state by the name alone, for every project on the laptop. A second project with a
+  pipeline of the same name loads into the first one's DuckDB file and writes none of its
+  own.{% if include_contracts %} A pipeline that loads an input port is named after the port all the same: dlt
+  finds the port's schema file by that name.{% endif %}

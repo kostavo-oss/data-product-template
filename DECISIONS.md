@@ -251,3 +251,26 @@ Rejected: `minimum_release_age_excludes` in the product's `mise.toml`, which tur
 safety setting off for everybody who installs the product. And waiting a day, which
 makes a release of the template depend on the clock. caland stays `latest`: nothing in
 the product needs a caland of a certain day.
+
+## 26. 2026-10-11 — The example's pipeline is named after the product
+
+dlt keeps a pipeline's state by its name, in the home folder, for every project on the
+machine. Two products each had a pipeline named `example`, so the second loaded into the
+first one's DuckDB file (#24). The owner's choice: fix it in the product. The example
+gives `create_pipeline` the name `<package>_example`. The package name and not the
+project name: it has no `-`, and it already names the folder under `src/`, the job's key
+and the schemas. DuckDB names its database after the file and the file after the
+pipeline, so the name is an identifier there too. The command stays
+`ingest run example`: that is the function's name, and the job's words do not change.
+
+The cost is that the local file and its schema carry the product's name, so the contract
+of `numbers` names `<package>_example.duckdb` as its local server.
+
+Rejected: leeghwater keeping dlt's state inside the project folder, which changes where
+state lives for every project that uses leeghwater, to fix what a name fixes here. And a
+note in the README only: the second product then still fails its first `dev` run, and
+`contracts:test` with it.
+
+Left open: a pipeline that loads an input port is named after the port, because dlt
+finds the schema file by that name, and so two products that read one port share state
+the same way (#28).

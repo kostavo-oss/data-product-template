@@ -283,6 +283,26 @@ empty at the start.
 `tests/test_stevin.py` runs the validations again on every change, with lely and stevin
 at the versions the product pins.
 
+## 2026-10-11: two products on one laptop
+
+For [#24](https://github.com/kostavo-oss/data-product-template/issues/24), with mise
+2026.10.6, leeghwater 0.2.1, dlt 1.31.0 and duckdb 1.5.6. Two products were generated
+from the working tree, `first-shop` and `second-shop`, each with contracts only. mise
+ran with one home folder for both, empty at the start: no dlt state. No workspace.
+
+| What | Printed |
+|---|---|
+| `mise run dev` in `first-shop` | `first run    yes: this pipeline had no state before`; exit 0; `first_shop_example.duckdb` in its folder |
+| `mise run dev` in `second-shop`, straight after | the same line; exit 0; `second_shop_example.duckdb` in its folder, and the first product's file kept its time |
+| `ls ~/.dlt/pipelines` | `first_shop_example`, `second_shop_example` |
+| `mise run contracts:test` in `second-shop`, then in `first-shop` | `Server: local (type=duckdb, database=second_shop_example.duckdb, …`, `Data contract is valid. Ran 6 checks.`; exit 0 each |
+| `mise run check` in `first-shop` | exit 0 |
+| a product made from `v0.1.0` and updated, untouched, in a home folder of its own: `mise run dev`, `contracts:test`, `check` | exit 0 each; it still loads into `example.duckdb` |
+| the same product with the pipeline and the contract's `local` server renamed by hand: `mise run dev`, `contracts:test` | `first run    yes`; `old_shop_example.duckdb` beside `example.duckdb`; `Ran 6 checks.`; exit 0 each |
+
+`tests/test_generated_project.py` generates two products and runs this again on every
+change. With the old name that test fails.
+
 ## Not yet
 
 On a workspace:
@@ -305,6 +325,8 @@ On a workspace:
   not been compared there. [#10](https://github.com/kostavo-oss/data-product-template/issues/10)
 - **A load into Databricks with a dlt schema from a contract**, and the job's `ingest`
   task reading that schema from the wheel.
+- **The job's first run after a pipeline was renamed** in a product that had already
+  loaded under the old name. To dlt the new name is a new pipeline.
 - **`stevin plan`, `apply` and `drift` on a product**, from the tasks or from the step.
   Nothing has shown that stevin resolves this bundle through the Databricks CLI, names
   the schemas as a development target deploys them, or makes `squares`. [#5](https://github.com/kostavo-oss/data-product-template/issues/5)
@@ -350,8 +372,9 @@ On a laptop:
 - **The contracts tasks with an input port, through mise**: `contracts:pull`,
   `contracts:check` and `contracts:dlt` ran through mise on a product that reads
   nothing. [#21](https://github.com/kostavo-oss/data-product-template/issues/21)
-- **Two products on one laptop.** The second loads its example into the first one's
-  DuckDB file. [#24](https://github.com/kostavo-oss/data-product-template/issues/24)
+- **Two products on one laptop that load the same input port.** A pipeline that keeps
+  an input contract is named after the port, so they share dlt's state as two examples
+  did. [#28](https://github.com/kostavo-oss/data-product-template/issues/28)
 - **`copier update` on a product that takes stevin later.** The contract of a product
   without dbt moves from `numbers` to `squares` when stevin is switched on, and
   `contracts/**` is the product's own.

@@ -33,13 +33,15 @@ mise.toml                   every task; `mise tasks` lists them
 ```sh
 mise install            # python, uv, the Databricks CLI{% if include_lely %}, lely{% endif %}{% if include_stevin %}, stevin{% endif %}{% if include_caland %}, caland{% endif %}
 uv sync
-mise run dev            # the example pipeline, into example.duckdb
+mise run dev            # the example pipeline, into {{ package_name }}_example.duckdb
 mise run check          # lint, format, the pipelines import{% if include_dbt %}, dbt parses{% endif %}{% if include_contracts %}, the contracts are valid{% endif %}{% if include_stevin %}, the table specs are valid{% endif %}
 ```
 
 `uv run ingest list` names the pipelines; `uv run ingest run example --count 3` runs one
-with an option. dlt keeps a pipeline's state under `~/.dlt/pipelines/<name>/`, so to start
-over, delete that folder and the `.duckdb` file.
+with an option. dlt keeps a pipeline's state under `~/.dlt/pipelines/<name>/`, by the name
+`create_pipeline` is given, and for every project on the laptop together. So the example's
+name starts with this product's, `{{ package_name }}_example`, and its file is
+`{{ package_name }}_example.duckdb`. To start over, delete that folder and the file.
 
 ## On your workspace: the dev target
 
@@ -207,7 +209,10 @@ The app names no scope yet: give one in `src/{{ package_name }}/cli.py`
 A function marked `@pipeline` in `src/{{ package_name }}/pipelines/`; its parameters become
 options of `ingest run <name>`. It makes its dlt pipeline with
 `leeghwater.create_pipeline(...)` and runs it with `leeghwater.run(...)` — never with
-`dlt.pipeline()`: where a run loads is the run's to say. Add a task for it in
+`dlt.pipeline()`: where a run loads is the run's to say. Start the name it gives
+`create_pipeline` with `{{ package_name }}_`, as the example does: two pipelines of one name on
+one laptop share their state, whatever folder they are in{% if include_contracts %} (a pipeline that loads an
+input port is named after the port all the same){% endif %}. Add a task for it in
 `resources/{{ project_name }}.job.yml` with the options the example task passes.
 {%- if include_dbt %}
 
