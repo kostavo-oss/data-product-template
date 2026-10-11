@@ -254,6 +254,15 @@ Found while trying:
   `1 newer pipx:lely release hidden by minimum_release_age`. A release is not what
   `mise install` brings on its first day.
 
+## 2026-10-11: the first release, on GitHub
+
+The tag `v0.1.0` was made on `main` at `388a580` and pushed on 2026-10-11
+([#22](https://github.com/kostavo-oss/data-product-template/issues/22)).
+
+| What | Held? |
+|---|---|
+| `uvx copier copy --defaults gh:kostavo-oss/data-product-template <folder>`, with copier 9.18.2 and no `--vcs-ref` | yes: the product was written from the tag, and `.copier-answers.yml` has `_commit: v0.1.0` and `_src_path: gh:kostavo-oss/data-product-template` |
+
 ## 2026-10-11: lely's own step for the tables, and the pins, on a laptop
 
 For [#19](https://github.com/kostavo-oss/data-product-template/issues/19), with lely
@@ -360,9 +369,9 @@ On a workspace:
 
 On GitHub:
 
-- **A release.** The repository has no tag. That copier takes the newest tag, leaves a
-  pre-release and what `main` has since, and updates a product from one tag to the next
-  was seen with a template in a local git repository only. [#22](https://github.com/kostavo-oss/data-product-template/issues/22)
+- **An update from one release to the next, taken from GitHub.** The repository has one
+  tag. That copier leaves a pre-release and what `main` has since, and updates a product
+  from one tag to the next, was seen with a template in a local git repository only.
 - **The CI gate for more than one case.** It refused a removed column on a pull request
   on 2026-10-10. A new version file and a compatible edit were seen to pass in a local
   repository only.
