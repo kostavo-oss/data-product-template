@@ -86,9 +86,14 @@ a plan that was reviewed on a pull request; the first pull request puts that rig
 The tables are a step of the same deploy: `tables` in `lely.yml`, after `bundle`, is
 lely's own `stevin` step. The plan lists what changes on each table, beside the bundle's
 changes, and `apply` runs the plan that was reviewed. A change that loses data needs
-`lely apply --allow-destructive`, and `lely destroy` leaves the tables alone. stevin plans
-against schemas that are there: deploy a new target once with `mise run deploy` before
-its first plan.
+`lely apply --allow-destructive`, and `lely destroy` leaves the tables alone.
+
+On a target that is new the tables wait: their schema is the bundle's, and is not there
+yet. `mise run apply` is one command all the same. It deploys the bundle, then plans the
+tables, shows them and asks. Through the workflows it takes two pull requests. The first
+plan shows the tables waiting, and its `apply` deploys the bundle and ends at the tables
+with exit code 2: a red cross that is expected that once. The next pull request's plan
+lists the tables, and its merge makes them.
 {%- elif include_stevin %}
 
 stevin is no step of this deploy. Its one spec governs a table the job lands, and that

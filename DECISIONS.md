@@ -274,3 +274,22 @@ note in the README only: the second product then still fails its first `dev` run
 Left open: a pipeline that loads an input port is named after the port, because dlt
 finds the schema file by that name, and so two products that read one port share state
 the same way (#28).
+
+## 27. 2026-10-11 — A new target waits for its tables; the pins move
+
+The pins of 25 move to lely 0.4.1 and stevin 0.4.0a3, the same day. They answer what 24
+left open (#27): stevin says with an exit code that a table's schema is the bundle's and
+is not there yet, and lely shows the `tables` step as waiting where its plan failed. So
+a first deploy needs nothing by hand, and the sentence that said to deploy once first is
+gone. The steps stay `bundle`, then `tables`.
+
+Rejected: a step that runs the job between the two, as lely's docs show for a table a
+spec only governs. In the product without dbt the order is the other way round: the
+job's SQL task fills `squares`, which stevin has to make first. With dbt there is still
+no `tables` step. The governed `numbers` is in `raw`, where stevin shapes nothing, and
+its owner is named, so a step after a run of the job would now wait and not fail. But
+lely would then run the job on every apply, and that is a change of its own to ask for.
+
+Rejected too: softening the `apply` workflow for the first deploy, with a step that
+turns exit code 2 at a waiting step into a pass. A plan lely refuses ends with 2 as
+well, and a green job would hide that.

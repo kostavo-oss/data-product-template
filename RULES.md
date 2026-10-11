@@ -195,9 +195,24 @@ product gets, `REL` a release of the template.
   2026-10-10 (TRIED.md).
 - **DEP-3** — lely is pinned to one version in `mise.toml`, and so is stevin (STV-7):
   `mise install` brings exactly those, also on the day a newer one is released. The two
-  are a pair lely's `stevin` step takes: lely 0.4.0 or newer, and stevin 0.4.0a2 or
+  are a pair lely's `stevin` step takes: lely 0.4.1 or newer, and stevin 0.4.0a3 or
   newer.
   Held by: `tests/test_stevin.py::test_lely_and_stevin_are_pinned_as_a_pair_the_step_takes`.
+- **DEP-4** — A target that is new needs no deploy by hand before its first plan. With
+  the `tables` step the plan shows the bundle ready and the tables waiting, because
+  their schema is the bundle's and is not there yet. At a terminal one `lely apply`
+  deploys the bundle, then plans the tables and asks. Through the workflows it is two
+  pull requests: the first `apply` deploys the bundle and ends at the tables with exit
+  code 2 (DEP-5), and the second applies the tables. Nothing runs the job before the
+  tables: its SQL task fills a table stevin has to make first.
+  Not tested: it needs a workspace, and no workspace has seen it. lely's own tests show
+  it against stand-ins (TRIED.md).
+- **DEP-5** — The `apply` workflow does not hide how lely ends. Its step is the command
+  itself, `lely apply plan.json --yes --github`, with nothing that goes on after a
+  failure: a plan lely refuses, or an apply that stops at a step that was waiting, ends
+  with exit code 2 and a red job, and lely's lines in the log say why. The result file
+  is kept either way.
+  Held by: `tests/test_template.py::test_the_apply_workflow_does_not_hide_how_lely_ends`.
 
 ## SEC — secrets
 

@@ -19,9 +19,15 @@ has to be taken.
   request reviews. The step `tables` in `lely.yml` is lely's own `stevin` step: the plan
   lists what changes on each table, and the merge applies that plan. `ops/tables.py` is
   gone. `uvx copier update` moves `lely.yml` and `mise.toml` and removes
-  `ops/tables.py`: nothing is done by hand. Deploy a new target once with
-  `mise run deploy` before its first plan: stevin plans against schemas that are there.
-- `mise.toml` pins lely to 0.4.0 and stevin to 0.4.0a2. lely was `latest`, which does
+  `ops/tables.py`: nothing is done by hand.
+- A first deploy of such a product needs no deploy by hand. On a target that is new the
+  plan shows the tables waiting, because their schema is the bundle's and is not there
+  yet. At a terminal `mise run apply` is one command: it deploys the bundle, then plans
+  the tables, shows them and asks. Through the workflows it is two pull requests: the
+  first `apply` deploys the bundle and ends red at the tables, with exit code 2, which
+  is expected that once; the next pull request's plan lists the tables and its merge
+  makes them. This has not been seen on a workspace yet.
+- `mise.toml` pins lely to 0.4.1 and stevin to 0.4.0a3. lely was `latest`, which does
   not bring a release on its first day. Run `mise install` after the update.
 - In a new product, `stevin/stevin.yml` says whose tables are whose with one pattern for
   each schema, named as the bundle names it, so a new dbt model needs no line there. A
@@ -36,7 +42,7 @@ has to be taken.
 
   and leave the dbt line as it was when `stevin/security/` is switched on: its tables
   are stevin's own and stand in `silver`. The lines of 0.1.0 keep working with stevin
-  0.4.0a2.
+  0.4.0a3.
 - In a new product the example's dlt pipeline is named `<package>_example`, no longer
   `example`, so two products on one laptop no longer load into each other's file. It
   loads into `<package>_example.duckdb`. A product that exists keeps its name:

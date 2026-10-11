@@ -9,12 +9,12 @@ databricks-cli = "latest"
 {%- if include_lely %}
 # Pinned, and changed here and nowhere else: "latest" does not bring a release on its
 # first day, and lely.yml is written for this one.
-"pipx:lely" = "0.4.0"
+"pipx:lely" = "0.4.1"
 {%- endif %}
 {%- if include_stevin %}
 # Pinned, and changed here and nowhere else. Every stevin release so far is a
 # pre-release, and "latest" finds none of those.
-"pipx:stevin" = "0.4.0a2"
+"pipx:stevin" = "0.4.0a3"
 {%- endif %}
 {%- if include_caland %}
 "pipx:caland" = "latest"

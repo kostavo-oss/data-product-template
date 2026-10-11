@@ -329,6 +329,27 @@ default answers, no part, and dbt with stevin and nothing else. No workspace.
 | `lely validate` after it | exit 0: `3 steps` with the `tables` step, `2 steps` with dbt |
 | `stevin validate` for `prod` with the `owned_elsewhere` lines of 0.1.0, under stevin 0.4.0a2 | `1 spec OK.`; exit 0 |
 
+## 2026-10-11, later: lely 0.4.1 and stevin 0.4.0a3, on a laptop
+
+For [#27](https://github.com/kostavo-oss/data-product-template/issues/27). Both were
+released that afternoon, and the pins moved to them: with them the `tables` step waits
+on a target that is new, where the plan failed. The runs of the two sections above were
+made again with these versions, mise in a new and empty home folder. No workspace.
+
+| What | Printed |
+|---|---|
+| `mise install` in a product with every part, and in one with every part but dbt | exit 0: **lely 0.4.1**, **stevin 0.4.0a3**, caland 0.7.1, python 3.12.15, uv 0.13.0, the Databricks CLI 1.20.0 |
+| `uv sync` in both | exit 0; leeghwater 0.2.1, dlt 1.31.0, duckdb 1.5.6 |
+| `lely --version`, `stevin --version`, through `mise exec` | `lely 0.4.1`, `stevin 0.4.0a3` |
+| `lely validate` | exit 0: `3 steps` without dbt (`scope`, `bundle`, `tables`), `2 steps` with dbt |
+| `lely steps` | exit 0; the `stevin` step `can    plan, apply, list` |
+| `stevin validate -c stevin/stevin.yml`, default target and `prod`, in both | `1 spec OK.`; exit 0 each, no warning |
+| `mise run check` in both | exit 0 |
+| The steps of `lely.yml`, read in five generated products | without dbt: `bundle`, `tables`, with `scope` first when a scope was named. With dbt, and without stevin: `bundle`, with `scope` first. No step runs the job |
+| `copier update` from `v0.1.0`, the six products of the section above | exit 0 each, no conflict; it now moves `.github/workflows/apply.yml` too, where there is lely |
+| `mise install`, `mise run check`, `mise run dev` and `lely validate` after the update | exit 0 each; lely 0.4.1 and stevin 0.4.0a3 where the product has them |
+| `stevin validate -t prod` with the `owned_elsewhere` lines of 0.1.0, under stevin 0.4.0a3 | `1 spec OK.`; exit 0 |
+
 ## Not yet
 
 On a workspace:
@@ -365,11 +386,18 @@ On a workspace:
   the config and named what the step can do; nothing has planned. lely's own docs say
   the step has not run on a workspace or against the real `stevin` command.
   [#5](https://github.com/kostavo-oss/data-product-template/issues/5)
-- **The first plan of a target that was never deployed**, with the `tables` step.
-  stevin's source refuses to plan a table whose schema the bundle declares and has not
-  made. That was read, not seen: if it holds, the first `lely plan` of a new target
-  stops at `tables`, and the `plan` workflow of a new repository posts no plan until
-  somebody has deployed the bundle once.
+- **The first deploy of a target that is new**, with the `tables` step: all of it.
+  stevin 0.4.0a3 ends its plan with exit code 5 when a table's schema is the bundle's
+  and is not there yet, and lely 0.4.1 then shows the step as waiting. What follows is
+  what lely's docs say and its tests show against stand-ins. No workspace has seen any
+  of it, from this template or from lely: at a terminal, one `lely apply` that deploys
+  the bundle, then plans the tables and asks; through the workflows, a first plan with
+  the tables waiting, a first `apply` that deploys the bundle and ends red with exit
+  code 2 at the tables, and a second pull request whose plan lists the tables and whose
+  merge makes them.
+  [#27](https://github.com/kostavo-oss/data-product-template/issues/27)
+- **With dbt, `tables:plan` before the job has run once.** stevin 0.4.0a3 is said to end
+  with exit code 5 and name `numbers` as dlt's and not there yet. Not seen.
   [#27](https://github.com/kostavo-oss/data-product-template/issues/27)
 - **A schema named by reference in `owned_elsewhere`, on a development target.**
   `validate` takes the key and does not settle it. That `stevin plan` reads

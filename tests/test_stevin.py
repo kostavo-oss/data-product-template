@@ -442,7 +442,7 @@ def test_the_tasks_are_there_and_stevin_is_pinned_in_one_place(with_stevin):
         mise = tomllib.loads((project / "mise.toml").read_text())
         tasks = mise["tasks"]
 
-        assert mise["tools"]["pipx:stevin"] == "0.4.0a2"
+        assert mise["tools"]["pipx:stevin"] == "0.4.0a3"
         assert {name for name in tasks if name.startswith("tables:")} == TASKS
         assert tasks["tables:validate"]["run"] == "stevin validate -c stevin/stevin.yml"
         assert "stevin validate -c stevin/stevin.yml" in tasks["check"]["run"]
@@ -455,7 +455,7 @@ def test_the_tasks_are_there_and_stevin_is_pinned_in_one_place(with_stevin):
         pinned = [
             path
             for path in files(project)
-            if "0.4.0a2" in (project / path).read_text(errors="replace")
+            if "0.4.0a3" in (project / path).read_text(errors="replace")
         ]
         assert pinned == ["mise.toml"]
 
@@ -480,6 +480,11 @@ def test_without_dbt_the_tables_are_a_step_after_the_bundle(sql, sql_bare):
         "with": {"config": "stevin/stevin.yml"},
     }
     assert (sql / steps[2]["with"]["config"]).is_file()
+    # No step runs the job before the tables: its SQL task fills a table stevin makes.
+    assert "bundle.run" not in (sql / "lely.yml").read_text()
+    readme = " ".join((sql / "README.md").read_text().split())
+    assert "On a target that is new the tables wait" in readme
+    assert "with exit code 2" in readme
     # The product has no script for it, with lely or without.
     for project in (sql, sql_bare):
         assert not (project / "ops/tables.py").exists()
@@ -522,7 +527,7 @@ def test_lely_and_stevin_are_pinned_as_a_pair_the_step_takes(sql, both, full):
         tools = tomllib.loads((project / "mise.toml").read_text())["tools"]
         pin = tools["pipx:lely"]
         assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", pin), pin
-        assert tuple(int(part) for part in pin.split(".")) >= (0, 4, 0)
+        assert tuple(int(part) for part in pin.split(".")) >= (0, 4, 1)
     for project in (sql, both):
         tools = tomllib.loads((project / "mise.toml").read_text())["tools"]
         found = re.fullmatch(
@@ -530,9 +535,10 @@ def test_lely_and_stevin_are_pinned_as_a_pair_the_step_takes(sql, both, full):
         )
         assert found, tools["pipx:stevin"]
         release = tuple(int(part) for part in found.groups()[:3])
-        # 0.4.0a2 is the oldest stevin lely's step takes; a final release has no `a`.
+        # 0.4.0a3 is the oldest stevin lely's step takes: the first whose `plan` says
+        # with an exit code that it waits. A final release has no `a`.
         assert release > (0, 4, 0) or (
-            release == (0, 4, 0) and int(found.group(4) or 99) >= 2
+            release == (0, 4, 0) and int(found.group(4) or 99) >= 3
         )
 
 
