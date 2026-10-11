@@ -312,6 +312,23 @@ ran with one home folder for both, empty at the start: no dlt state. No workspac
 `tests/test_generated_project.py` generates two products and runs this again on every
 change. With the old name that test fails.
 
+## 2026-10-11: an update from 0.1.0 to 0.2.0, on a laptop
+
+With copier 9.18.2 and mise 2026.10.6. The template was a local clone of this
+repository with the tag `v0.1.0` as it is, and a temporary tag `v0.2.0` on what the
+release holds. Six products were made from `v0.1.0`, committed, and updated with
+`uvx copier update --defaults`: every part but dbt, every part, contracts only, the
+default answers, no part, and dbt with stevin and nothing else. No workspace.
+
+| What | Held? |
+|---|---|
+| The update, in all six | exit 0, `_commit: v0.2.0`, no conflict and no `.rej` file |
+| What it changed | `AGENTS.md` in all six; `mise.toml` where there is lely or stevin; `lely.yml` in the product with the `tables` step, where it also removed `ops/tables.py`. Nothing under `src/`, `contracts/` or `stevin/` |
+| `mise install` after it | lely 0.4.0 and stevin 0.4.0a2 where the product has them |
+| `mise run check` and `mise run dev` after it, in all six | exit 0 each; the example still loads into `example.duckdb` |
+| `lely validate` after it | exit 0: `3 steps` with the `tables` step, `2 steps` with dbt |
+| `stevin validate` for `prod` with the `owned_elsewhere` lines of 0.1.0, under stevin 0.4.0a2 | `1 spec OK.`; exit 0 |
+
 ## Not yet
 
 On a workspace:

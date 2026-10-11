@@ -22,10 +22,9 @@ mise run deploy     # the dev target on your workspace
 mise run job        # the job: ingest, then transform
 ```
 
-copier takes the newest release: the newest tag, `v0.1.0` being the first, and `main`
-only while there is no tag. `--vcs-ref v0.1.0` takes a release by name, and
-`--vcs-ref main` what is not released yet. [CHANGELOG.md](CHANGELOG.md) says what each
-release changes.
+copier takes the newest release: the newest tag, and `main` only while there is no tag.
+`--vcs-ref v0.2.0` takes a release by name, and `--vcs-ref main` what is not released
+yet. [CHANGELOG.md](CHANGELOG.md) says what each release changes.
 
 Later, in the product, `uvx copier update` moves it from the release it was made from to
 the newest one: the bundle, the job, the tasks and the workflows, never your pipelines,

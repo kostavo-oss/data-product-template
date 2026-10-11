@@ -6,6 +6,15 @@ the release it was made from to the newest one.
 
 ## [Unreleased]
 
+## [0.2.0]
+
+The table changes are in the plan a pull request reviews, and two products on one laptop
+no longer meet. `uvx copier update` from 0.1.0 applies without a conflict, and then
+`mise install` brings the tools the product now pins. Two things stay as they are in a
+product that exists, because the files are the product's own, and each has its steps by
+hand below: the lines under `owned_elsewhere:` and the example pipeline's name. Neither
+has to be taken.
+
 - With stevin, with lely and without dbt, the table changes are in the plan a pull
   request reviews. The step `tables` in `lely.yml` is lely's own `stevin` step: the plan
   lists what changes on each table, and the merge applies that plan. `ops/tables.py` is
