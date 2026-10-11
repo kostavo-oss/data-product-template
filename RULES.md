@@ -165,8 +165,10 @@ product gets.
 - **TSK-4** — `mise run ingest -- <pipeline>` loads from a laptop into the schemas the
   dev target deployed. `ops/names.py` reads their names back from
   `databricks bundle summary`, and says what is missing when there is no CLI or no
-  deploy.
-  Held by: `tests/test_generated_project.py::test_the_names_script_says_what_is_missing`.
+  deploy. `ingest` and `transform` stop there, and run nothing without the names or the
+  sign-in.
+  Held by: `tests/test_generated_project.py::test_the_names_script_says_what_is_missing`,
+  `tests/test_template.py::test_a_laptop_task_stops_when_the_names_cannot_be_read`.
 - **TSK-5** — A developer's own profile, warehouse and catalog are in `mise.local.toml`,
   which git ignores. `mise.local.toml.example` is committed.
   Held by: `tests/test_template.py::test_git_ignores_a_file_of_credentials`.

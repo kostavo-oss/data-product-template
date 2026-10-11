@@ -209,6 +209,60 @@ def test_the_scope_is_a_step_before_the_bundle(full, bare):
     assert "secret_scope" not in bare_variables
 
 
+# A stand-in for uv: it writes down what it was asked, and fails when asked for the
+# script `$FAILS` names. For `ops/names.py` it prints the names a deploy would give.
+STAND_IN = """#!/bin/sh
+echo "$*" >> "$ASKED"
+case "$*" in *"$FAILS"*) echo "it could not be read" >&2; exit 1 ;; esac
+case "$*" in *ops/names.py*) echo "export RAW=r RAW_STAGING=s SILVER=t" ;; esac
+"""
+
+
+@pytest.mark.parametrize(
+    ("task", "fails", "asked"),
+    [
+        ("ingest", "ops/names.py", ["run python ops/names.py"]),
+        ("transform", "ops/names.py", ["run python ops/names.py"]),
+        (
+            "transform",
+            "ops/dbt_env.py",
+            ["run python ops/names.py", "run python ops/dbt_env.py"],
+        ),
+    ],
+)
+def test_a_laptop_task_stops_when_the_names_cannot_be_read(
+    full, tmp_path, task, fails, asked
+):
+    """The task ends there, with the script's own words: it does not go on to load or
+    build with names it does not have."""
+    # Holds TSK-4.
+    script = tomllib.loads((full / "mise.toml").read_text())["tasks"][task]["run"]
+    stand_in = tmp_path / "bin" / "uv"
+    stand_in.parent.mkdir()
+    stand_in.write_text(STAND_IN)
+    stand_in.chmod(0o755)
+    environment = {
+        "PATH": f"{stand_in.parent}:/usr/bin:/bin",
+        "ASKED": str(tmp_path / "asked"),
+        "FAILS": fails,
+        "DATABRICKS_CONFIG_PROFILE": "none",
+        "WAREHOUSE_ID": "none",
+        "CATALOG": "main",
+    }
+
+    done = subprocess.run(
+        ["bash", "-c", script, task, "example"],
+        cwd=full,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+
+    assert done.returncode == 1
+    assert done.stderr == "it could not be read\n"
+    assert (tmp_path / "asked").read_text().splitlines() == asked
+
+
 def test_git_ignores_a_file_of_credentials(full, bare, tmp_path):
     """Tools read a token from `.env`; one `git add` must not publish it."""
     # Holds TSK-5, SEC-5.

@@ -204,6 +204,56 @@ For [#18](https://github.com/kostavo-oss/data-product-template/issues/18), with 
 
 `tests/test_parts.py` runs this again on every change.
 
+## 2026-10-11: the tasks through mise, on a laptop
+
+For [#21](https://github.com/kostavo-oss/data-product-template/issues/21), with mise
+2026.10.6. Four products were generated from the working tree into a
+scratch folder: every part (`all-yes`), no part (`all-no`), contracts only (`landed`),
+and every part but dbt (`sql`). mise ran with a home folder of its own, empty at the
+start: no global mise config, no Databricks profile, no dlt state. `mise install`
+brought python 3.12.15, uv 0.13.0, the Databricks CLI 1.20.0, lely 0.3.0, stevin 0.4.0a1
+and caland 0.7.1, then `uv sync` ran. No workspace was reached.
+
+Each task of the product with every part, and `contracts:test`, which only a product
+without dbt and stevin has:
+
+| Task | Through `mise run` |
+|---|---|
+| `dev` | ran offline on 2026-10-11: exit 0, `example.duckdb` written; `mise run dev -- --count 3` passed the words on |
+| `check` | ran offline on 2026-10-11: exit 0 in all four products, and again after `contracts:dbt` and with a `mise.local.toml` |
+| `fix` | ran offline on 2026-10-11: exit 0, `12 files left unchanged` |
+| `clean` | ran offline on 2026-10-11: exit 0, `example.duckdb` and `site/` gone |
+| `contracts:lint` | ran offline on 2026-10-11: `Data contract is valid. Ran 1 checks.`; exit 0 |
+| `contracts:test` | ran offline on 2026-10-11, in `landed` after `dev`: `Ran 6 checks.`; exit 0 |
+| `contracts:pull`, `contracts:check`, `contracts:dlt` | ran offline on 2026-10-11: exit 0 and nothing printed, because the product has no input port. With a port they have run from the tests only, not through mise |
+| `contracts:catalog` | ran offline on 2026-10-11: `Created site/contracts/index.html`; exit 0 |
+| `contracts:dbt` | ran offline on 2026-10-11: exit 0, and `check` passed after it |
+| `contracts:edit` | ran offline on 2026-10-11: the page answered 200 at `http://localhost:4243` with the title `v1.odcs.yaml - Data Contract Editor`, and an interrupt stopped it |
+| `tables:validate` | ran offline on 2026-10-11: `1 spec OK.`; exit 0, in `all-yes` and in `sql` |
+| `deploy`, `job` | needs a workspace and has not run. mise resolves it: `mise run <task> -- --help` printed the Databricks CLI's usage, exit 0 |
+| `scope` | needs a workspace and has not run. `mise run scope -- --help` printed `Usage: scope.py apply [OPTIONS]`, exit 0 |
+| `doctor` | needs a workspace and has not run. `mise run doctor -- --help` printed `Usage: ingest doctor [OPTIONS]`, exit 0 |
+| `ingest`, `transform` | needs a workspace and has not run. `mise run <task> -- example` with a profile that does not exist stopped at `No deployed names to read: deploy the target first (mise run deploy).`, exit 1. The profile it named was the one from `mise.local.toml` |
+| `tables:plan`, `tables:apply`, `tables:drift` | needs a workspace and has not run. `-- --help` printed stevin's usage for the verb, exit 0 |
+| `plan`, `apply`, `destroy` | needs a workspace and has not run. `-- --help` printed lely's usage for the verb, exit 0 |
+| `secrets` | needs a workspace and has not run. `mise run secrets -- --help` printed caland's usage, exit 0 |
+
+Found while trying:
+
+- `ingest` and `transform` went on after `ops/names.py` failed: `eval "$(...)"` does
+  not stop a script when the command inside fails. `ingest` then ended on
+  `RAW: unbound variable`, and `transform` ran `ops/dbt_env.py` too and ended on its
+  traceback. Fixed: the output is read first and then taken, and the task ends on the
+  script's own words.
+- A second product on the same laptop loads its example into the first one's
+  `example.duckdb`: dlt keeps a pipeline's state by its name, with the folder it first
+  ran in. `contracts:test` then fails in the second product. Not fixed:
+  [#24](https://github.com/kostavo-oss/data-product-template/issues/24). For the runs
+  above the state was removed between products.
+- mise's `latest` brought lely 0.3.0 while PyPI had 0.3.1 since the evening before:
+  `1 newer pipx:lely release hidden by minimum_release_age`. A release is not what
+  `mise install` brings on its first day.
+
 ## Not yet
 
 On a workspace:
@@ -211,6 +261,12 @@ On a workspace:
 - **The job's `ingest` task, end to end**, and with it the job itself, on a workspace
   whose serverless compute can reach its storage. [#4](https://github.com/kostavo-oss/data-product-template/issues/4)
 - **caland from the `secrets` task.** It opens a page in a browser. [#4](https://github.com/kostavo-oss/data-product-template/issues/4)
+- **The tasks that reach a workspace, through mise**: `deploy`, `job`, `scope`,
+  `doctor`, `ingest`, `transform`, `tables:plan`, `tables:apply`, `tables:drift`, `plan`,
+  `apply`, `destroy` and `secrets`. mise resolves each and its command line parses
+  (above); none has run. Whether `plan`, `apply` and `destroy` work for a product whose
+  `warehouse_id` has no default is not known: they pass no warehouse to the bundle.
+  [#21](https://github.com/kostavo-oss/data-product-template/issues/21)
 - **The `prod` target.** Only the dev target has been deployed, from a laptop and from
   the workflows. [#20](https://github.com/kostavo-oss/data-product-template/issues/20)
 - **The contracts in the job**: `check` as the job's first task, `test` as its last. And
@@ -246,10 +302,11 @@ On GitHub:
 
 On a laptop:
 
-- **The tasks through mise itself, other than `check` and `dev`.** Those two ran on a
-  GitHub runner after `jdx/mise-action` installed the tools. For the others the command
-  behind the task was run by hand, or by a workflow without mise. `mise install` of the
-  pinned stevin was seen in a scratch place only. [#21](https://github.com/kostavo-oss/data-product-template/issues/21)
+- **The contracts tasks with an input port, through mise**: `contracts:pull`,
+  `contracts:check` and `contracts:dlt` ran through mise on a product that reads
+  nothing. [#21](https://github.com/kostavo-oss/data-product-template/issues/21)
+- **Two products on one laptop.** The second loads its example into the first one's
+  DuckDB file. [#24](https://github.com/kostavo-oss/data-product-template/issues/24)
 - **`copier update` on a product that takes stevin later.** The contract of a product
   without dbt moves from `numbers` to `squares` when stevin is switched on, and
   `contracts/**` is the product's own.
