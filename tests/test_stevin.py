@@ -1,11 +1,12 @@
 """stevin in a product: the four combinations of dbt and stevin, and the access examples.
 
-Needs uv, and the network the first time: `stevin validate` and `lely validate` are run
-with `uvx`, stevin at the version the product's `mise.toml` pins. Both are offline
-commands. No workspace is reached: nothing here plans or applies.
+Needs uv, and the network the first time: `stevin validate`, `lely validate` and
+`lely steps` are run with `uvx`, each tool at the version the product's `mise.toml` pins.
+All three are offline commands. No workspace is reached: nothing here plans or applies.
 """
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -21,7 +22,6 @@ STEVIN = {
     "stevin/tables/squares.yml",
     "stevin/tables/numbers.yml",
     "sql/squares.sql",
-    "ops/tables.py",
 }
 EXAMPLES = {
     "stevin/security/README.md",
@@ -34,21 +34,9 @@ TASKS = {"tables:validate", "tables:plan", "tables:apply", "tables:drift"}
 # What `stevin validate` says of a target in development mode: the bundle's CLI gives a
 # schema its deployed name, and `validate` asks nothing. It is a note, not a finding.
 NOT_SETTLED = "Not settled here: ${resources.schemas."
-# A stand-in for the stevin command: it writes down the words it was given.
-STAND_IN = '#!/bin/sh\necho "$* in $(basename "$PWD") for $LELY_TARGET" > "$SAID"\n'
-RUN_THE_STEP = """
-import sys
-from pathlib import Path
-
-sys.path.insert(0, "ops")
-from lely.testing import check_plan, context
-from tables import Tables
-
-ctx = context(None, target="dev", name="tables", root=Path.cwd())
-plan = check_plan(Tables(), ctx)
-print([(change.key, change.action, change.summary) for change in plan.changes])
-Tables().apply(ctx, plan)
-"""
+# A schema of the bundle, as a key of `owned_elsewhere` names it.
+RAW = "${catalog}.${resources.schemas.raw.name}"
+SILVER = "${catalog}.${resources.schemas.silver.name}"
 
 
 def uv() -> str:
@@ -73,6 +61,12 @@ def stevin(project: Path, *words: str):
     """`stevin <words>` in a product, at the version its mise.toml pins."""
     pin = tomllib.loads((project / "mise.toml").read_text())["tools"]["pipx:stevin"]
     return run(project, uv(), "tool", "run", "--from", f"stevin=={pin}", "stevin", *words)
+
+
+def lely(project: Path, *words: str):
+    """`lely <words>` in a product, at the version its mise.toml pins."""
+    pin = tomllib.loads((project / "mise.toml").read_text())["tools"]["pipx:lely"]
+    return run(project, uv(), "tool", "run", "--from", f"lely=={pin}", "lely", *words)
 
 
 def validate(project: Path, *words: str):
@@ -374,10 +368,9 @@ def test_with_dbt_stevin_governs_the_landed_table_and_leaves_dbts_alone(both, tm
     config = yaml.safe_load((both / "stevin/stevin.yml").read_text())
     spec = yaml.safe_load((both / "stevin/tables/numbers.yml").read_text())
 
-    assert config["owned_elsewhere"] == {
-        "${catalog}.*.numbers": "dlt",
-        "${catalog}.*.squares": "dbt",
-    }
+    # dbt's table by name: this product has the access examples, whose tables are
+    # stevin's own and stand in the same schema.
+    assert config["owned_elsewhere"] == {f"{RAW}.*": "dlt", f"{SILVER}.squares": "dbt"}
     assert spec["table"] == "${catalog}.${resources.schemas.raw.name}.numbers"
     # A tag and a grant, and nothing of the shape: that is dlt's.
     assert set(spec) == {"table", "tags", "grants"}
@@ -400,7 +393,8 @@ def test_the_governing_spec_warns_when_nothing_names_the_owner(both, tmp_path):
     # Holds STV-5.
     project = Path(shutil.copytree(both, tmp_path / "both"))
     config = project / "stevin/stevin.yml"
-    config.write_text(config.read_text().replace("  ${catalog}.*.numbers: dlt\n", ""))
+    assert f"  {RAW}.*: dlt\n" in config.read_text()
+    config.write_text(config.read_text().replace(f"  {RAW}.*: dlt\n", ""))
 
     done = validate(project, "-t", "prod")
 
@@ -408,6 +402,35 @@ def test_the_governing_spec_warns_when_nothing_names_the_owner(both, tmp_path):
     assert "warning: main.both_shop_raw.numbers has no columns' types" in (
         done.stdout + done.stderr
     ).replace("\n", " ")
+
+
+def test_whose_tables_are_whose_is_said_by_schema(sql, sql_bare, both_bare, tmp_path):
+    """One pattern for each schema, by the bundle's own reference: a new dbt model needs
+    no line, and a spec for any table in dbt's schema is refused."""
+    # Holds STV-5.
+    for project in (sql, sql_bare):
+        config = yaml.safe_load((project / "stevin/stevin.yml").read_text())
+        assert config["owned_elsewhere"] == {f"{RAW}.*": "dlt"}
+    config = yaml.safe_load((both_bare / "stevin/stevin.yml").read_text())
+    assert config["owned_elsewhere"] == {f"{RAW}.*": "dlt", f"{SILVER}.*": "dbt"}
+    schemas = yaml.safe_load((both_bare / "resources/schemas.yml").read_text())
+    assert {"raw", "silver"} <= set(schemas["resources"]["schemas"])
+
+    project = Path(shutil.copytree(both_bare, tmp_path / "both"))
+    (project / "stevin/tables/other.yml").write_text(
+        f"table: {SILVER}.other\ncolumns:\n  - {{name: id, type: bigint}}\n"
+    )
+    for words in ((), ("-t", "prod")):
+        done = validate(project, *words)
+        assert done.returncode == 1, done.stdout + done.stderr
+        assert "other is dbt's" in done.stdout + done.stderr
+    # In the schema dlt lands in, a spec may govern a table and never shape it.
+    (project / "stevin/tables/other.yml").write_text(
+        f"table: {RAW}.other\ncolumns:\n  - {{name: id, type: bigint}}\n"
+    )
+    done = validate(project, "-t", "prod")
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert "other is dlt's" in done.stdout + done.stderr
 
 
 # ── where stevin runs: the tasks, and the step of the deploy ─────────────────
@@ -419,7 +442,7 @@ def test_the_tasks_are_there_and_stevin_is_pinned_in_one_place(with_stevin):
         mise = tomllib.loads((project / "mise.toml").read_text())
         tasks = mise["tasks"]
 
-        assert mise["tools"]["pipx:stevin"] == "0.4.0a1"
+        assert mise["tools"]["pipx:stevin"] == "0.4.0a3"
         assert {name for name in tasks if name.startswith("tables:")} == TASKS
         assert tasks["tables:validate"]["run"] == "stevin validate -c stevin/stevin.yml"
         assert "stevin validate -c stevin/stevin.yml" in tasks["check"]["run"]
@@ -432,7 +455,7 @@ def test_the_tasks_are_there_and_stevin_is_pinned_in_one_place(with_stevin):
         pinned = [
             path
             for path in files(project)
-            if "0.4.0a1" in (project / path).read_text(errors="replace")
+            if "0.4.0a3" in (project / path).read_text(errors="replace")
         ]
         assert pinned == ["mise.toml"]
 
@@ -450,12 +473,24 @@ def test_without_dbt_the_tables_are_a_step_after_the_bundle(sql, sql_bare):
     steps = yaml.safe_load((sql / "lely.yml").read_text())["steps"]
 
     assert [step["name"] for step in steps] == ["scope", "bundle", "tables"]
-    assert steps[2] == {"name": "tables", "uses": "./ops/tables.py:Tables"}
-    # Not lely's own `stevin` step: lely 0.3 can plan with it and refuses to apply.
-    assert "uses: stevin" not in (sql / "lely.yml").read_text()
-    # Without lely there is no step and no file for one: the tasks are what there is.
+    # lely's own `stevin` step, told where stevin's project file is: from lely.yml.
+    assert steps[2] == {
+        "name": "tables",
+        "uses": "stevin",
+        "with": {"config": "stevin/stevin.yml"},
+    }
+    assert (sql / steps[2]["with"]["config"]).is_file()
+    # No step runs the job before the tables: its SQL task fills a table stevin makes.
+    assert "bundle.run" not in (sql / "lely.yml").read_text()
+    readme = " ".join((sql / "README.md").read_text().split())
+    assert "On a target that is new the tables wait" in readme
+    assert "with exit code 2" in readme
+    # The product has no script for it, with lely or without.
+    for project in (sql, sql_bare):
+        assert not (project / "ops/tables.py").exists()
+    # Without lely there is no step: the `tables:*` tasks are what there is.
     assert not (sql_bare / "lely.yml").exists()
-    assert not (sql_bare / "ops/tables.py").exists()
+    assert set(tomllib.loads((sql_bare / "mise.toml").read_text())["tasks"]) >= TASKS
 
 
 def test_with_dbt_stevin_is_no_step_of_the_deploy(both):
@@ -470,36 +505,41 @@ def test_with_dbt_stevin_is_no_step_of_the_deploy(both):
 
 def test_lely_takes_the_config_with_the_tables_step(sql):
     # Holds STV-8.
-    done = run(sql, uv(), "tool", "run", "--from", "lely>=0.3", "lely", "validate")
+    """lely, at the version the product pins, takes the config and can apply the step."""
+    done = lely(sql, "validate")
 
     assert done.returncode == 0, done.stdout + done.stderr
     assert "3 steps" in done.stdout
     assert "tables  takes and gives nothing" in done.stdout
 
+    steps = lely(sql, "steps")
+    assert steps.returncode == 0, steps.stdout + steps.stderr
+    said = " ".join(steps.stdout.split())
+    assert "planned and applied by stevin" in said
+    its = said.split("stevin built-in", 1)[1].split("./ops/scope.py", 1)[0]
+    assert "can plan, apply, list" in its
 
-def test_the_tables_step_runs_stevin_apply_for_the_target(sql, tmp_path):
-    """Held to lely's rules for a plan, then applied with a stand-in for stevin."""
-    # Holds STV-8.
-    stand_in = tmp_path / "bin" / "stevin"
-    stand_in.parent.mkdir()
-    stand_in.write_text(STAND_IN)
-    stand_in.chmod(0o755)
-    said = tmp_path / "said"
 
-    done = run(
-        sql,
-        *(uv(), "run", "--no-project", "--with", "lely>=0.3", "python", "-c"),
-        RUN_THE_STEP,
-        env={
-            "PATH": f"{stand_in.parent}{os.pathsep}{os.environ['PATH']}",
-            "SAID": str(said),
-        },
-    )
-
-    assert done.returncode == 0, done.stdout + done.stderr
-    words = "stevin apply --config stevin/stevin.yml --target dev --yes"
-    assert f"('tables', 'run', 'runs {words}')" in done.stdout
-    assert said.read_text().strip() == f"{words[7:]} in sql-shop for dev"
+def test_lely_and_stevin_are_pinned_as_a_pair_the_step_takes(sql, both, full):
+    """Exact versions: mise's `latest` does not bring a release on its first day."""
+    # Holds DEP-3.
+    for project in (sql, both, full):
+        tools = tomllib.loads((project / "mise.toml").read_text())["tools"]
+        pin = tools["pipx:lely"]
+        assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", pin), pin
+        assert tuple(int(part) for part in pin.split(".")) >= (0, 4, 1)
+    for project in (sql, both):
+        tools = tomllib.loads((project / "mise.toml").read_text())["tools"]
+        found = re.fullmatch(
+            r"([0-9]+)\.([0-9]+)\.([0-9]+)(?:a([0-9]+))?", tools["pipx:stevin"]
+        )
+        assert found, tools["pipx:stevin"]
+        release = tuple(int(part) for part in found.groups()[:3])
+        # 0.4.0a3 is the oldest stevin lely's step takes: the first whose `plan` says
+        # with an exit code that it waits. A final release has no `a`.
+        assert release > (0, 4, 0) or (
+            release == (0, 4, 0) and int(found.group(4) or 99) >= 3
+        )
 
 
 # ── the access examples ──────────────────────────────────────────────────────

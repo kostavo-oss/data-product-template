@@ -21,8 +21,10 @@ steps:
 {%- if include_stevin and not include_dbt %}
 
   # The tables, after the bundle: the schemas are the bundle's and have to be there.
-  # ops/tables.py runs `stevin apply`, so the table is made before the job first runs.
-  # The plan shows this step as one run; `mise run tables:plan` shows what it would change.
+  # lely runs stevin for it, at the version mise.toml pins. The plan lists what changes
+  # on each table, and an apply runs the plan that was reviewed, never a new one.
   - name: tables
-    uses: ./ops/tables.py:Tables
+    uses: stevin
+    with:
+      config: stevin/stevin.yml
 {%- endif %}

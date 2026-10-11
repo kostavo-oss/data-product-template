@@ -68,7 +68,6 @@ LEFT_BY_RUNS = (
     "dbt/target/",
     "dbt/logs/",
     "dbt/dbt_packages/",
-    "example.duckdb",
     "site/",
 )
 
@@ -80,4 +79,5 @@ def files(folder: Path) -> set[str]:
         for p in folder.rglob("*")
         if p.is_file()
         and not (path := p.relative_to(folder).as_posix()).startswith(LEFT_BY_RUNS)
+        and not path.endswith(".duckdb")
     }

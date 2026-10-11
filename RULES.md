@@ -123,6 +123,12 @@ product gets, `REL` a release of the template.
 - **DLT-2** — The example pipeline makes its own rows and needs no source, no secret and
   no workspace: the command behind `mise run dev` loads it into a local DuckDB file.
   Held by: `tests/test_generated_project.py::test_the_example_runs_here_into_duckdb`.
+- **DLT-3** — The example's dlt pipeline is named after the product: `<package>_example`.
+  dlt keeps a pipeline's state by its name, for every project on a machine together, so
+  two products on one laptop each load their example into a file in their own folder,
+  `<package>_example.duckdb`, and each one's `contracts:test` reads its own.
+  Held by: `tests/test_generated_project.py::test_two_products_on_one_laptop_each_load_into_their_own_file`,
+  `tests/test_contracts.py::test_the_servers_are_the_local_file_and_the_deployed_table`.
 
 ## DBT — the dbt project
 
@@ -187,6 +193,26 @@ product gets, `REL` a release of the template.
   push to `main` shows a failed `apply`.
   Not tested: a workflow runs on GitHub only. Both held once, on one repository, on
   2026-10-10 (TRIED.md).
+- **DEP-3** — lely is pinned to one version in `mise.toml`, and so is stevin (STV-7):
+  `mise install` brings exactly those, also on the day a newer one is released. The two
+  are a pair lely's `stevin` step takes: lely 0.4.1 or newer, and stevin 0.4.0a3 or
+  newer.
+  Held by: `tests/test_stevin.py::test_lely_and_stevin_are_pinned_as_a_pair_the_step_takes`.
+- **DEP-4** — A target that is new needs no deploy by hand before its first plan. With
+  the `tables` step the plan shows the bundle ready and the tables waiting, because
+  their schema is the bundle's and is not there yet. At a terminal one `lely apply`
+  deploys the bundle, then plans the tables and asks. Through the workflows it is two
+  pull requests: the first `apply` deploys the bundle and ends at the tables with exit
+  code 2 (DEP-5), and the second applies the tables. Nothing runs the job before the
+  tables: its SQL task fills a table stevin has to make first.
+  Not tested: it needs a workspace, and no workspace has seen it. lely's own tests show
+  it against stand-ins (TRIED.md).
+- **DEP-5** — The `apply` workflow does not hide how lely ends. Its step is the command
+  itself, `lely apply plan.json --yes --github`, with nothing that goes on after a
+  failure: a plan lely refuses, or an apply that stops at a step that was waiting, ends
+  with exit code 2 and a red job, and lely's lines in the log say why. The result file
+  is kept either way.
+  Held by: `tests/test_template.py::test_the_apply_workflow_does_not_hide_how_lely_ends`.
 
 ## SEC — secrets
 
@@ -323,11 +349,16 @@ product gets, `REL` a release of the template.
   Held by: `tests/test_stevin.py::test_without_dbt_the_job_fills_the_table_with_a_sql_task_after_ingest`,
   `tests/test_stevin.py::test_the_sql_names_no_schema_and_takes_every_name_as_a_parameter`.
 - **STV-5** — With dbt, dbt builds `squares` as before. One spec, without column types,
-  puts a tag and a grant on the landed table `numbers`. `stevin/stevin.yml` says that
-  `numbers` is dlt's and `squares` is dbt's, so stevin refuses a spec for `squares`, and
-  warns when nothing names the owner of `numbers`.
+  puts a tag and a grant on the landed table `numbers`. `stevin/stevin.yml` says whose
+  tables are whose with one pattern for each schema, named by the bundle's reference:
+  every table in `raw` is dlt's, with dbt and without, and with dbt every table in
+  `silver` is dbt's. So stevin refuses a spec for a table in `silver`, a new dbt model
+  needs no line, and stevin warns when nothing names the owner of `numbers`. With dbt and
+  the access examples dbt's tables are named one by one instead, because the tables of
+  the examples are stevin's own and stand in `silver`.
   Held by: `tests/test_stevin.py::test_with_dbt_stevin_governs_the_landed_table_and_leaves_dbts_alone`,
-  `tests/test_stevin.py::test_the_governing_spec_warns_when_nothing_names_the_owner`.
+  `tests/test_stevin.py::test_the_governing_spec_warns_when_nothing_names_the_owner`,
+  `tests/test_stevin.py::test_whose_tables_are_whose_is_said_by_schema`.
 - **STV-6** — The specs a product gets pass `stevin validate` with no workspace, for the
   dev and the prod target, without a warning.
   Held by: `tests/test_stevin.py::test_the_specs_validate_for_both_targets`.
@@ -338,13 +369,11 @@ product gets, `REL` a release of the template.
   Held by: `tests/test_stevin.py::test_the_tasks_are_there_and_stevin_is_pinned_in_one_place`.
 - **STV-8** — stevin runs at a deploy and never in the job. Under lely and without dbt
   the tables are a step of the deploy, after the bundle, and the plan a pull request
-  reviews shows what that step would change.
+  reviews shows what that step would change. The step is lely's own `stevin` step, given
+  `stevin/stevin.yml`: the product has no script for it. No workspace has seen the step
+  plan or apply (TRIED.md).
   Held by: `tests/test_stevin.py::test_without_dbt_the_tables_are_a_step_after_the_bundle`,
-  `tests/test_stevin.py::test_lely_takes_the_config_with_the_tables_step`,
-  `tests/test_stevin.py::test_the_tables_step_runs_stevin_apply_for_the_target`.
-  Not kept yet: #19 — the step is the product's own `ops/tables.py`, which runs
-  `stevin apply --yes` for the target. lely's plan shows it as one run and not what it
-  would change; `mise run tables:plan` shows that.
+  `tests/test_stevin.py::test_lely_takes_the_config_with_the_tables_step`.
 - **STV-9** — With dbt stevin is no step of the deploy. Its spec governs a table the job
   lands, so it is applied from the task, after the job has run once, and the README says
   so.

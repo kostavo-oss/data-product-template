@@ -39,8 +39,8 @@ schema:
 servers:
   - server: local
     type: duckdb
-    database: example.duckdb
-    schema: example_dataset
+    database: {{ package_name }}_example.duckdb
+    schema: {{ package_name }}_example_dataset
   - server: databricks
     type: databricks
     catalog: ${CATALOG:-{{ catalog }}}

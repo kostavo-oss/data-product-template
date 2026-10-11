@@ -7,9 +7,11 @@ leeghwater change before it is released.
 import os
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
+from conftest import BARE, generate
 
 
 def uv() -> str:
@@ -114,7 +116,68 @@ def test_the_example_runs_here_into_duckdb(synced, tmp_path):
 
     assert done.returncode == 0, done.stderr
     assert "done    numbers" in done.stdout
-    assert (synced / "example.duckdb").exists()
+    assert (synced / "shop_data_example.duckdb").exists()
+
+
+def test_two_products_on_one_laptop_each_load_into_their_own_file(template, tmp_path):
+    """One home folder, so one place where dlt keeps state. Each product's `dev` task
+    loads into the file in its own folder, and the second one's contract holds."""
+    # Holds DLT-3.
+    home = tmp_path / "home"
+    home.mkdir()
+    environment = {
+        k: v
+        for k, v in os.environ.items()
+        if k not in ("VIRTUAL_ENV", "DLT_DATA_DIR") and not k.startswith("XDG_")
+    }
+    # uv keeps its cache and its Pythons under the home folder too: those stay.
+    for name, words in (
+        ("UV_CACHE_DIR", ("cache", "dir")),
+        ("UV_PYTHON_INSTALL_DIR", ("python", "dir")),
+    ):
+        asked = subprocess.run([uv(), *words], capture_output=True, text=True)
+        environment.setdefault(name, asked.stdout.strip())
+    environment["HOME"] = str(home)
+
+    def run(product: Path, command: str):
+        return subprocess.run(
+            command,
+            cwd=product,
+            shell=True,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+
+    loaded = {}
+    for name in ("first-shop", "second-shop"):
+        answers = {**BARE, "project_name": name, "include_contracts": True}
+        product = generate(template, answers, tmp_path)
+        synced = subprocess.run([uv(), "sync"], cwd=product, capture_output=True)
+        if synced.returncode != 0:
+            pytest.skip(f"the project could not be synced here: {synced.stderr[-400:]}")
+        dev = tomllib.loads((product / "mise.toml").read_text())["tasks"]["dev"]["run"]
+        before = {path: path.stat().st_mtime_ns for path in loaded.values()}
+
+        done = run(product, dev)
+
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert "first run    yes" in done.stdout, done.stdout
+        package = name.replace("-", "_")
+        assert [path.name for path in product.glob("*.duckdb")] == [
+            f"{package}_example.duckdb"
+        ]
+        # The products that ran before were not written to.
+        assert before == {path: path.stat().st_mtime_ns for path in loaded.values()}
+        loaded[name] = product / f"{package}_example.duckdb"
+
+    state = sorted(path.name for path in (home / ".dlt/pipelines").iterdir())
+    assert state == ["first_shop_example", "second_shop_example"]
+    second = loaded["second-shop"].parent
+    tasks = tomllib.loads((second / "mise.toml").read_text())["tasks"]
+    done = run(second, tasks["contracts:test"]["run"])
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "Ran 6 checks" in done.stdout
 
 
 def test_the_names_script_says_what_is_missing(synced):

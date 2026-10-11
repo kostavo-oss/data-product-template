@@ -22,17 +22,31 @@ specs:
 # The schemas are the bundle's too (resources/schemas.yml): stevin makes none and takes no
 # spec for one.
 bundle: ../databricks.yml
-{%- if include_dbt %}
 
-# Whose tables are whose. dlt lands `numbers`, so its spec may govern it and never shape
-# it. dbt builds `squares`, so it takes no spec at all: its grants and tags go in dbt's
-# config. A new dbt model gets a line here.
-# The schema part is `*`: a target may prefix a schema's name, and a key here cannot take
-# `${resources.schemas.<key>.name}`: stevin reads a key as three parts between
-# dots.
+{%- if include_dbt and include_access_examples %}
+
+# Whose tables are whose. dlt lands every table in raw, so a spec may govern one and never
+# shape it. dbt builds `squares`, so it takes no spec at all: its grants and tags go in
+# dbt's config. dbt's tables are named one by one, because the tables of security/ are
+# this project's own and stand beside them in silver. A new dbt model gets a line here.
+{%- elif include_dbt %}
+
+# Whose tables are whose, one pattern for each schema. dlt lands every table in raw, so a
+# spec may govern one and never shape it. dbt builds every table in silver, so none takes
+# a spec at all: its grants and tags go in dbt's config.
+{%- else %}
+
+# Whose tables are whose. dlt lands every table in raw, so a spec may govern one and never
+# shape it. The tables in silver are this project's own.
+{%- endif %}
+# A schema is named the way the bundle names it, and the key follows it to the name a
+# target deploys.
 owned_elsewhere:
-  ${catalog}.*.numbers: dlt
-  ${catalog}.*.squares: dbt
+  ${catalog}.${resources.schemas.raw.name}.*: dlt
+{%- if include_dbt and include_access_examples %}
+  ${catalog}.${resources.schemas.silver.name}.squares: dbt
+{%- elif include_dbt %}
+  ${catalog}.${resources.schemas.silver.name}.*: dbt
 {%- endif %}
 
 # No `history_schema`: an apply is not recorded and takes no lock. What one gives, and

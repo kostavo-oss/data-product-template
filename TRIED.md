@@ -254,6 +254,102 @@ Found while trying:
   `1 newer pipx:lely release hidden by minimum_release_age`. A release is not what
   `mise install` brings on its first day.
 
+## 2026-10-11: the first release, on GitHub
+
+The tag `v0.1.0` was made on `main` at `388a580` and pushed on 2026-10-11
+([#22](https://github.com/kostavo-oss/data-product-template/issues/22)).
+
+| What | Held? |
+|---|---|
+| `uvx copier copy --defaults gh:kostavo-oss/data-product-template <folder>`, with copier 9.18.2 and no `--vcs-ref` | yes: the product was written from the tag, and `.copier-answers.yml` has `_commit: v0.1.0` and `_src_path: gh:kostavo-oss/data-product-template` |
+
+## 2026-10-11: lely's own step for the tables, and the pins, on a laptop
+
+For [#19](https://github.com/kostavo-oss/data-product-template/issues/19), with lely
+0.4.0 and stevin 0.4.0a2 from PyPI, both released that day, uv 0.11.15 and mise
+2026.10.6. No workspace was reached: no plan, no apply, no deploy. The products were
+generated with copier from the working tree. mise ran with a home folder of its own,
+empty at the start.
+
+| What | Printed |
+|---|---|
+| `mise latest pipx:lely`, a few minutes after lely 0.4.0 was on PyPI | `0.3.0`, and `2 newer pipx:lely releases hidden by minimum_release_age` |
+| `mise latest pipx:lely@0.4` | nothing: a prefix finds no hidden release either |
+| `mise settings ls --all`, in the empty home | no `minimum_release_age` is set: it is mise's own default. `minimum_release_age_excludes` is `[]` |
+| `mise install` in a product with every part, and in one with every part but dbt | exit 0: python 3.12.15, uv 0.13.0, the Databricks CLI 1.20.0, **lely 0.4.0**, **stevin 0.4.0a2**, caland 0.7.1 (`latest`; 0.7.3 was a few hours old) |
+| `uv sync` in both | exit 0; the lock file has leeghwater 0.2.1, dlt 1.31.0 and duckdb 1.5.6 |
+| `lely --version`, `stevin --version`, `caland --version`, through `mise exec` | `lely 0.4.0`, `stevin 0.4.0a2`, `caland 0.7.1` |
+| `lely validate`, every part but dbt | `3 steps`, `tables  takes and gives nothing`; exit 0 (2 steps with dbt, where stevin is no step) |
+| `lely steps` | `stevin  built-in`, `Tables, views, functions and grants, planned and applied by stevin.`, `can    plan, apply, list`; exit 0 |
+| `stevin validate -c stevin/stevin.yml`, in both, for the default target and for `prod` | `Not settled here: ${resources.schemas.raw.name}, ${resources.schemas.silver.name}. …` and `1 spec OK.`; then `1 spec OK.`; exit 0, no warning |
+| `mise run check` in both | exit 0, with `1 spec OK.` and `3 specs OK.` for the access examples |
+| `mise run plan`, `apply`, `destroy`, `tables:plan`, `tables:apply`, each with `-- --help` | the tool's usage for the verb; exit 0 each. None has run |
+| with dbt and no access examples, a spec for a new table `other` in `silver` | `error: main.<product>.other is dbt's: put grants and tags in dbt's config, and use a schema-level policy for masks`; exit 1 |
+| the same for the default target | the same refusal, with the schema shown as `resources_schemas_silver_name`: `validate` does not ask what a development target deploys it as |
+| with dbt and the access examples, `owned_elsewhere` with `${catalog}.${resources.schemas.silver.name}.*: dbt` | `stevin/security/orders.yml: error: main.<product>.orders is dbt's …`, the same for `region_members`, `2 problems in 3 specs.`; exit 1. So that product names dbt's tables one by one ([DECISIONS.md](DECISIONS.md), 24) |
+| the same product as the template writes it, the examples named on their own and switched on | `3 specs OK.`; `4 specs OK.`; exit 0 |
+
+`tests/test_stevin.py` runs the validations again on every change, with lely and stevin
+at the versions the product pins.
+
+## 2026-10-11: two products on one laptop
+
+For [#24](https://github.com/kostavo-oss/data-product-template/issues/24), with mise
+2026.10.6, leeghwater 0.2.1, dlt 1.31.0 and duckdb 1.5.6. Two products were generated
+from the working tree, `first-shop` and `second-shop`, each with contracts only. mise
+ran with one home folder for both, empty at the start: no dlt state. No workspace.
+
+| What | Printed |
+|---|---|
+| `mise run dev` in `first-shop` | `first run    yes: this pipeline had no state before`; exit 0; `first_shop_example.duckdb` in its folder |
+| `mise run dev` in `second-shop`, straight after | the same line; exit 0; `second_shop_example.duckdb` in its folder, and the first product's file kept its time |
+| `ls ~/.dlt/pipelines` | `first_shop_example`, `second_shop_example` |
+| `mise run contracts:test` in `second-shop`, then in `first-shop` | `Server: local (type=duckdb, database=second_shop_example.duckdb, …`, `Data contract is valid. Ran 6 checks.`; exit 0 each |
+| `mise run check` in `first-shop` | exit 0 |
+| a product made from `v0.1.0` and updated, untouched, in a home folder of its own: `mise run dev`, `contracts:test`, `check` | exit 0 each; it still loads into `example.duckdb` |
+| the same product with the pipeline and the contract's `local` server renamed by hand: `mise run dev`, `contracts:test` | `first run    yes`; `old_shop_example.duckdb` beside `example.duckdb`; `Ran 6 checks.`; exit 0 each |
+
+`tests/test_generated_project.py` generates two products and runs this again on every
+change. With the old name that test fails.
+
+## 2026-10-11: an update from 0.1.0 to 0.2.0, on a laptop
+
+With copier 9.18.2 and mise 2026.10.6. The template was a local clone of this
+repository with the tag `v0.1.0` as it is, and a temporary tag `v0.2.0` on what the
+release holds. Six products were made from `v0.1.0`, committed, and updated with
+`uvx copier update --defaults`: every part but dbt, every part, contracts only, the
+default answers, no part, and dbt with stevin and nothing else. No workspace.
+
+| What | Held? |
+|---|---|
+| The update, in all six | exit 0, `_commit: v0.2.0`, no conflict and no `.rej` file |
+| What it changed | `AGENTS.md` in all six; `mise.toml` where there is lely or stevin; `lely.yml` in the product with the `tables` step, where it also removed `ops/tables.py`. Nothing under `src/`, `contracts/` or `stevin/` |
+| `mise install` after it | lely 0.4.0 and stevin 0.4.0a2 where the product has them |
+| `mise run check` and `mise run dev` after it, in all six | exit 0 each; the example still loads into `example.duckdb` |
+| `lely validate` after it | exit 0: `3 steps` with the `tables` step, `2 steps` with dbt |
+| `stevin validate` for `prod` with the `owned_elsewhere` lines of 0.1.0, under stevin 0.4.0a2 | `1 spec OK.`; exit 0 |
+
+## 2026-10-11, later: lely 0.4.1 and stevin 0.4.0a3, on a laptop
+
+For [#27](https://github.com/kostavo-oss/data-product-template/issues/27). Both were
+released that afternoon, and the pins moved to them: with them the `tables` step waits
+on a target that is new, where the plan failed. The runs of the two sections above were
+made again with these versions, mise in a new and empty home folder. No workspace.
+
+| What | Printed |
+|---|---|
+| `mise install` in a product with every part, and in one with every part but dbt | exit 0: **lely 0.4.1**, **stevin 0.4.0a3**, caland 0.7.1, python 3.12.15, uv 0.13.0, the Databricks CLI 1.20.0 |
+| `uv sync` in both | exit 0; leeghwater 0.2.1, dlt 1.31.0, duckdb 1.5.6 |
+| `lely --version`, `stevin --version`, through `mise exec` | `lely 0.4.1`, `stevin 0.4.0a3` |
+| `lely validate` | exit 0: `3 steps` without dbt (`scope`, `bundle`, `tables`), `2 steps` with dbt |
+| `lely steps` | exit 0; the `stevin` step `can    plan, apply, list` |
+| `stevin validate -c stevin/stevin.yml`, default target and `prod`, in both | `1 spec OK.`; exit 0 each, no warning |
+| `mise run check` in both | exit 0 |
+| The steps of `lely.yml`, read in five generated products | without dbt: `bundle`, `tables`, with `scope` first when a scope was named. With dbt, and without stevin: `bundle`, with `scope` first. No step runs the job |
+| `copier update` from `v0.1.0`, the six products of the section above | exit 0 each, no conflict; it now moves `.github/workflows/apply.yml` too, where there is lely |
+| `mise install`, `mise run check`, `mise run dev` and `lely validate` after the update | exit 0 each; lely 0.4.1 and stevin 0.4.0a3 where the product has them |
+| `stevin validate -t prod` with the `owned_elsewhere` lines of 0.1.0, under stevin 0.4.0a3 | `1 spec OK.`; exit 0 |
+
 ## Not yet
 
 On a workspace:
@@ -276,6 +372,8 @@ On a workspace:
   not been compared there. [#10](https://github.com/kostavo-oss/data-product-template/issues/10)
 - **A load into Databricks with a dlt schema from a contract**, and the job's `ingest`
   task reading that schema from the wheel.
+- **The job's first run after a pipeline was renamed** in a product that had already
+  loaded under the old name. To dlt the new name is a new pipeline.
 - **`stevin plan`, `apply` and `drift` on a product**, from the tasks or from the step.
   Nothing has shown that stevin resolves this bundle through the Databricks CLI, names
   the schemas as a development target deploys them, or makes `squares`. [#5](https://github.com/kostavo-oss/data-product-template/issues/5)
@@ -283,9 +381,29 @@ On a workspace:
   the task's `parameters` and the relative `file.path` are written from the Databricks
   documentation. The task has not run, and the bundle of a product with stevin has not
   been validated by the CLI. [#5](https://github.com/kostavo-oss/data-product-template/issues/5)
-- **The `tables` step under lely**: `lely plan` and `lely apply` with it, and the `plan`
-  and `apply` workflows of a product that has it. The step's words were seen by a
-  stand-in only. [#5](https://github.com/kostavo-oss/data-product-template/issues/5)
+- **The `tables` step under lely**: `lely plan` and `lely apply` with lely's own `stevin`
+  step, and the `plan` and `apply` workflows of a product that has it. lely has taken
+  the config and named what the step can do; nothing has planned. lely's own docs say
+  the step has not run on a workspace or against the real `stevin` command.
+  [#5](https://github.com/kostavo-oss/data-product-template/issues/5)
+- **The first deploy of a target that is new**, with the `tables` step: all of it.
+  stevin 0.4.0a3 ends its plan with exit code 5 when a table's schema is the bundle's
+  and is not there yet, and lely 0.4.1 then shows the step as waiting. What follows is
+  what lely's docs say and its tests show against stand-ins. No workspace has seen any
+  of it, from this template or from lely: at a terminal, one `lely apply` that deploys
+  the bundle, then plans the tables and asks; through the workflows, a first plan with
+  the tables waiting, a first `apply` that deploys the bundle and ends red with exit
+  code 2 at the tables, and a second pull request whose plan lists the tables and whose
+  merge makes them.
+  [#27](https://github.com/kostavo-oss/data-product-template/issues/27)
+- **With dbt, `tables:plan` before the job has run once.** stevin 0.4.0a3 is said to end
+  with exit code 5 and name `numbers` as dlt's and not there yet. Not seen.
+  [#27](https://github.com/kostavo-oss/data-product-template/issues/27)
+- **A schema named by reference in `owned_elsewhere`, on a development target.**
+  `validate` takes the key and does not settle it. That `stevin plan` reads
+  `${resources.schemas.<key>.name}` as the prefixed name a development target deploys
+  has not been seen from a product.
+  [#5](https://github.com/kostavo-oss/data-product-template/issues/5)
 - **With dbt: the tag and the grant on `numbers`**, the refusal on a new target before
   the job has run, and stevin telling dbt's table from its own. [#5](https://github.com/kostavo-oss/data-product-template/issues/5)
 - **A grant taking effect**, on a table or on a schema. The grants in
@@ -296,9 +414,9 @@ On a workspace:
 
 On GitHub:
 
-- **A release.** The repository has no tag. That copier takes the newest tag, leaves a
-  pre-release and what `main` has since, and updates a product from one tag to the next
-  was seen with a template in a local git repository only. [#22](https://github.com/kostavo-oss/data-product-template/issues/22)
+- **An update from one release to the next, taken from GitHub.** The repository has one
+  tag. That copier leaves a pre-release and what `main` has since, and updates a product
+  from one tag to the next, was seen with a template in a local git repository only.
 - **The CI gate for more than one case.** It refused a removed column on a pull request
   on 2026-10-10. A new version file and a compatible edit were seen to pass in a local
   repository only.
@@ -308,8 +426,9 @@ On a laptop:
 - **The contracts tasks with an input port, through mise**: `contracts:pull`,
   `contracts:check` and `contracts:dlt` ran through mise on a product that reads
   nothing. [#21](https://github.com/kostavo-oss/data-product-template/issues/21)
-- **Two products on one laptop.** The second loads its example into the first one's
-  DuckDB file. [#24](https://github.com/kostavo-oss/data-product-template/issues/24)
+- **Two products on one laptop that load the same input port.** A pipeline that keeps
+  an input contract is named after the port, so they share dlt's state as two examples
+  did. [#28](https://github.com/kostavo-oss/data-product-template/issues/28)
 - **`copier update` on a product that takes stevin later.** The contract of a product
   without dbt moves from `numbers` to `squares` when stevin is switched on, and
   `contracts/**` is the product's own.

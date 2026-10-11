@@ -58,8 +58,14 @@ Every rule comes with its reason. Keep a rule when the reason holds; say so when
 - **A table dbt builds takes no stevin spec: its grants and tags go in dbt's config.**
   stevin refuses such a spec, at `mise run tables:validate` and at the plan. dbt replaces
   the grants it does not list and recreates the table on a run, which drops what a second
+{%- if include_access_examples %}
   writer set. `stevin/stevin.yml` says which tables are dbt's: a new model gets a line
   there. stevin's are the tables dbt reads: the landed ones, governed and never shaped.
+{%- else %}
+  writer set. `stevin/stevin.yml` says that every table in `silver` is dbt's and every
+  table in `raw` is dlt's. stevin's are the tables dbt reads: the landed ones, governed
+  and never shaped.
+{%- endif %}
 {%- else %}
 - **A new table is a spec in `stevin/tables/` and a `.sql` file in `sql/`, with a task in
   the job.** stevin makes the table at deploy and the task fills it. A `CREATE TABLE` in
@@ -82,3 +88,8 @@ Every rule comes with its reason. Keep a rule when the reason holds; say so when
   running anything.
 - **Deleting the DuckDB file does not start a pipeline over.** dlt keeps a pipeline's state
   under `~/.dlt/pipelines/<name>/`; delete that too.
+- **The name a pipeline gives `create_pipeline` starts with `{{ package_name }}_`.** dlt keeps
+  that state by the name alone, for every project on the laptop. A second project with a
+  pipeline of the same name loads into the first one's DuckDB file and writes none of its
+  own.{% if include_contracts %} A pipeline that loads an input port is named after the port all the same: dlt
+  finds the port's schema file by that name.{% endif %}

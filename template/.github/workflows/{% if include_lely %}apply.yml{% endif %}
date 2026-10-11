@@ -1,4 +1,6 @@
 # On merge, lely applies the plan that was reviewed on the pull request: not a new plan.
+# lely ends with 2 when it refuses a plan or stops at a step that was waiting, which nobody
+# has reviewed yet. The job is then red, and lely's own lines in the log say why.
 name: apply
 
 on:

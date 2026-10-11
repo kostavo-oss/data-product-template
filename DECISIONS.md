@@ -214,3 +214,82 @@ page on GitHub as what a release is: copier does not read it, and it would be a 
 changelog.
 
 When the first tag is made is the owner's word (#22), and is not decided here.
+
+## 24. 2026-10-11 — The tables are lely's own step, and a schema is named by reference
+
+Supersedes 16 and 17, for the step and for `owned_elsewhere`. lely 0.4.0 applies its
+`stevin` step, and stevin 0.4.0a2 takes `${resources.schemas.<key>.name}` as one part of
+a key. So `ops/tables.py` is gone, the step in `lely.yml` is `uses: stevin`, and the plan
+a pull request reviews lists the table changes (#19). `owned_elsewhere` has one pattern
+for each schema: `raw` is dlt's in every product with stevin, and `silver` is dbt's with
+dbt. Without dbt the line for `raw` is new: nothing needs it today, and it says whose a
+landed table is before somebody writes a spec for one.
+
+With dbt and the access examples, dbt's tables are still named one by one. Tried:
+with `silver.*: dbt`, `stevin validate` refused the examples' `orders` and
+`region_members` as dbt's, and the product's own `check` failed. The examples are tables
+of stevin's in the schema dbt builds in, and stevin has no way to say "all of this
+schema but these".
+
+Rejected: a schema of their own for the examples, which is a fourth schema in the bundle
+for files nobody has to switch on. And leaving the `tables:*` tasks out of a product
+with lely: with dbt they are the only way to apply, and without lely they are all there
+is.
+
+Not decided here: what a first plan does on a target the bundle has not deployed (#27).
+
+## 25. 2026-10-11 — lely is pinned to an exact version too
+
+mise does not show a release on its first day (`minimum_release_age`, its own default),
+so `latest` brought lely 0.3.0 on the day 0.4.0 came out, and `lely.yml` needs 0.4.0. A
+prefix such as `0.4` found nothing that day either. An exact version is installed
+whatever its age, which is how stevin was already pinned. So `mise.toml` names lely
+0.4.0 and stevin 0.4.0a2, and a product gets a newer one when the template names it or
+when its owner changes the line.
+
+Rejected: `minimum_release_age_excludes` in the product's `mise.toml`, which turns a
+safety setting off for everybody who installs the product. And waiting a day, which
+makes a release of the template depend on the clock. caland stays `latest`: nothing in
+the product needs a caland of a certain day.
+
+## 26. 2026-10-11 — The example's pipeline is named after the product
+
+dlt keeps a pipeline's state by its name, in the home folder, for every project on the
+machine. Two products each had a pipeline named `example`, so the second loaded into the
+first one's DuckDB file (#24). The owner's choice: fix it in the product. The example
+gives `create_pipeline` the name `<package>_example`. The package name and not the
+project name: it has no `-`, and it already names the folder under `src/`, the job's key
+and the schemas. DuckDB names its database after the file and the file after the
+pipeline, so the name is an identifier there too. The command stays
+`ingest run example`: that is the function's name, and the job's words do not change.
+
+The cost is that the local file and its schema carry the product's name, so the contract
+of `numbers` names `<package>_example.duckdb` as its local server.
+
+Rejected: leeghwater keeping dlt's state inside the project folder, which changes where
+state lives for every project that uses leeghwater, to fix what a name fixes here. And a
+note in the README only: the second product then still fails its first `dev` run, and
+`contracts:test` with it.
+
+Left open: a pipeline that loads an input port is named after the port, because dlt
+finds the schema file by that name, and so two products that read one port share state
+the same way (#28).
+
+## 27. 2026-10-11 — A new target waits for its tables; the pins move
+
+The pins of 25 move to lely 0.4.1 and stevin 0.4.0a3, the same day. They answer what 24
+left open (#27): stevin says with an exit code that a table's schema is the bundle's and
+is not there yet, and lely shows the `tables` step as waiting where its plan failed. So
+a first deploy needs nothing by hand, and the sentence that said to deploy once first is
+gone. The steps stay `bundle`, then `tables`.
+
+Rejected: a step that runs the job between the two, as lely's docs show for a table a
+spec only governs. In the product without dbt the order is the other way round: the
+job's SQL task fills `squares`, which stevin has to make first. With dbt there is still
+no `tables` step. The governed `numbers` is in `raw`, where stevin shapes nothing, and
+its owner is named, so a step after a run of the job would now wait and not fail. But
+lely would then run the job on every apply, and that is a change of its own to ask for.
+
+Rejected too: softening the `apply` workflow for the first deploy, with a step that
+turns exit code 2 at a waiting step into a pass. A plan lely refuses ends with 2 as
+well, and a green job would hide that.

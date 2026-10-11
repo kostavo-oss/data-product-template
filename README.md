@@ -22,10 +22,9 @@ mise run deploy     # the dev target on your workspace
 mise run job        # the job: ingest, then transform
 ```
 
-copier takes the newest release: the newest tag, `v0.1.0` being the first, and `main`
-only while there is no tag. `--vcs-ref v0.1.0` takes a release by name, and
-`--vcs-ref main` what is not released yet. [CHANGELOG.md](CHANGELOG.md) says what each
-release changes.
+copier takes the newest release: the newest tag, and `main` only while there is no tag.
+`--vcs-ref v0.2.0` takes a release by name, and `--vcs-ref main` what is not released
+yet. [CHANGELOG.md](CHANGELOG.md) says what each release changes.
 
 Later, in the product, `uvx copier update` moves it from the release it was made from to
 the newest one: the bundle, the job, the tasks and the workflows, never your pipelines,
@@ -73,7 +72,12 @@ contracts, the spec takes the table's shape from the contract.
 
 **Next to dbt, it keeps what dbt does not own.** dbt builds `squares` as before. A spec
 without column types puts a tag and a grant on the table dlt lands, and
-`stevin/stevin.yml` says which tables are dbt's, so that a spec for one is refused.
+`stevin/stevin.yml` says that the tables in `silver` are dbt's, so that a spec for one is
+refused.
+
+**Under lely the tables are in the plan.** Without dbt, lely's own `stevin` step stands
+after the bundle: the plan a pull request reviews lists what changes on each table, and
+the merge applies that plan.
 
 ```sh
 mise run tables:validate    # the specs, with no workspace; part of `mise run check`
@@ -88,9 +92,7 @@ schemas stay the bundle's. With `include_access_examples` the product also gets
 [access recipes](https://kostavo-oss.github.io/tools/stevin/access-recipes/) as files to
 edit, with a page that says which names are placeholders. The rules are STV-1 to STV-9
 and ACC-1 to ACC-5 in [RULES.md](RULES.md). None of this has been applied to a workspace
-yet ([TRIED.md](TRIED.md)), and under lely the table changes are not in the plan a pull
-request reviews
-([#19](https://github.com/kostavo-oss/data-product-template/issues/19)).
+yet, and lely has not planned or applied its `stevin` step on one ([TRIED.md](TRIED.md)).
 
 ## Contracts between products
 

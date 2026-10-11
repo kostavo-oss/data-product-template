@@ -191,6 +191,22 @@ def test_the_readme_explains_each_part_that_was_included(full, bare):
     assert "failed" not in bare_readme
 
 
+def test_the_apply_workflow_does_not_hide_how_lely_ends(full):
+    """An apply that stops at a waiting step ends with 2: the job has to be red."""
+    # Holds DEP-5.
+    text = (full / ".github/workflows/apply.yml").read_text()
+    steps = yaml.safe_load(text)["jobs"]["apply"]["steps"]
+    (apply,) = [step for step in steps if "lely apply" in step.get("run", "")]
+
+    assert apply["run"] == "lely apply plan.json --yes --github -o result.json"
+    assert "continue-on-error" not in text
+    assert "|| true" not in text
+    # What lely wrote is kept also when it ended with a refusal.
+    kept = steps[steps.index(apply) + 1]
+    assert kept["with"]["path"] == "result.json"
+    assert kept["if"].startswith("always()")
+
+
 def test_the_scope_is_a_step_before_the_bundle(full, bare):
     """The scope step feeds the bundle under lely, and the job reads the variable."""
     # Holds DEP-1, SEC-1, SEC-2, SEC-3.
