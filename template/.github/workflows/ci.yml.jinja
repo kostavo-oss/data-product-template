@@ -4,6 +4,11 @@ name: ci
 
 on:
   pull_request:
+{%- if include_contracts %}
+    # A label too: `access-reviewed` is how a person lets loosened access through, and
+    # taking it off takes that back.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+{%- endif %}
   push:
     branches: [main]
 
@@ -25,9 +30,15 @@ jobs:
       - run: mise run check
 {%- if include_contracts %}
       # A contract that is out is a promise. An edit that breaks it fails here: a breaking
-      # change is a new version file. A new file always passes.
-      - name: No breaking change to a published contract
+      # change is a new version file. A new file always passes. An edit that loosens
+      # access (a classification lowered, a tag removed, a role added or raised) fails
+      # too, until someone who may label the pull request gives it `access-reviewed`.
+      - name: No breaking change to a published contract, no access loosened unseen
         if: github.event_name == 'pull_request'
-        run: uv run ops/ports.py breaking --base "origin/$GITHUB_BASE_REF"
+        env:
+          ACCESS_REVIEWED: {% raw %}${{ contains(github.event.pull_request.labels.*.name, 'access-reviewed') }}{% endraw %}
+        run: |
+          if [ "$ACCESS_REVIEWED" = "true" ]; then set -- --access-reviewed; fi
+          uv run ops/ports.py breaking --base "origin/$GITHUB_BASE_REF" "$@"
 {%- endif %}
       - run: mise run dev

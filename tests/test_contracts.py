@@ -162,6 +162,7 @@ def test_nothing_of_contracts_is_written_when_not_wanted(bare, plain):
         for path in ("mise.toml", "README.md", "AGENTS.md", ".github/workflows/ci.yml"):
             assert "contract" not in (project / path).read_text().lower(), path
         assert "fetch-depth" not in (project / ".github/workflows/ci.yml").read_text()
+        assert "labeled" not in (project / ".github/workflows/ci.yml").read_text()
 
 
 def test_each_output_port_names_the_contract_beside_it(full, landed):
@@ -232,16 +233,55 @@ def test_the_tasks_are_there_for_what_was_included(full, landed):
             assert tasks[f"contracts:{name}"]["run"] == f"uv run ops/ports.py {name}"
 
 
-def test_ci_compares_the_contracts_with_the_base_branch(full):
-    # Holds GEN-4, CON-5.
-    workflow = yaml.safe_load((full / ".github/workflows/ci.yml").read_text())
+def test_ci_compares_the_contracts_with_the_base_branch(full, tmp_path):
+    """The step as the workflow has it, run by bash with a stand-in for uv."""
+    # Holds GEN-4, CON-5, CON-17.
+    text = (full / ".github/workflows/ci.yml").read_text()
+    workflow = yaml.safe_load(text)
     steps = workflow["jobs"]["check"]["steps"]
     (gate,) = [step for step in steps if "breaking" in step.get("run", "")]
 
-    assert gate["run"] == 'uv run ops/ports.py breaking --base "origin/$GITHUB_BASE_REF"'
     assert gate["if"] == "github.event_name == 'pull_request'"
     assert steps[0]["with"]["fetch-depth"] == 0
-    assert "${{" not in (full / ".github/workflows/ci.yml").read_text()
+    # To YAML the key `on` is the word for true. A label put on or taken off runs it
+    # again.
+    assert workflow[True]["pull_request"]["types"] == [
+        "opened",
+        "synchronize",
+        "reopened",
+        "labeled",
+        "unlabeled",
+    ]
+    # The one expression in the file is GitHub's own, and it is not in a script: the
+    # label reaches the script as a variable of the environment.
+    asked = "${{ contains(github.event.pull_request.labels.*.name, 'access-reviewed') }}"
+    assert gate["env"] == {"ACCESS_REVIEWED": asked}
+    assert text.count("${{") == 1
+    assert "{%" not in text
+
+    stand_in = tmp_path / "uv"
+    stand_in.write_text('#!/bin/sh\necho "$@"\n')
+    stand_in.chmod(0o755)
+
+    def run(labelled: str) -> str:
+        environment = {
+            "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+            "GITHUB_BASE_REF": "main",
+            "ACCESS_REVIEWED": labelled,
+        }
+        done = subprocess.run(
+            ["bash", "-e", "-c", gate["run"]],
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+        assert done.returncode == 0, done.stderr
+        return done.stdout.strip()
+
+    compared = "run ops/ports.py breaking --base origin/main"
+    assert run("false") == compared
+    assert run("") == compared
+    assert run("true") == f"{compared} --access-reviewed"
 
 
 # ── ports.py, run ────────────────────────────────────────────────────────────
@@ -321,8 +361,7 @@ def test_dbt_gets_its_columns_from_the_contract(full, tmp_path):
 # ── the producer's gate: no breaking edit to a published version ─────────────
 
 
-@pytest.fixture
-def committed(copy) -> Path:
+def commit(product: Path) -> Path:
     """The product as a repository with one commit on `main`, on a branch of its own."""
     for words in (
         ["init", "-q", "-b", "main"],
@@ -330,8 +369,13 @@ def committed(copy) -> Path:
         ["commit", "-q", "-m", "the first version"],
         ["checkout", "-q", "-b", "change"],
     ):
-        subprocess.run([*GIT, *words], cwd=copy, check=True, capture_output=True)
-    return copy
+        subprocess.run([*GIT, *words], cwd=product, check=True, capture_output=True)
+    return product
+
+
+@pytest.fixture
+def committed(copy) -> Path:
+    return commit(copy)
 
 
 def test_a_compatible_edit_passes_the_gate(committed):
@@ -377,6 +421,201 @@ def test_a_base_git_does_not_know_is_not_a_pass(committed):
 
     assert done.returncode == 1
     assert "git does not know origin/main here" in done.stderr
+
+
+# ── the producer's gate: no access loosened unseen ───────────────────────────
+
+
+def rewrite(path: Path, change) -> None:
+    """A contract, read, changed by `change` and written again."""
+    contract = yaml.safe_load(path.read_text())
+    change(contract)
+    write(path, contract)
+
+
+def says_who_may_read(contract: dict) -> None:
+    """The contract of `numbers` with what ODCS v3.2.0 has for access: classifications
+    and tags, on a nested property and in an array too, and roles."""
+    table = contract["schema"][0]
+    number, square = table["properties"]
+    contract["tags"] = ["finance", "region:eu"]
+    table["tags"] = ["gold"]
+    number.update(classification="restricted", tags=["pii"])
+    square.update(classification="Secret")
+    text = {"logicalType": "string", "physicalType": "string"}
+    email = {"name": "email", **text, "classification": "confidential"}
+    sku = {"name": "sku", **text, "classification": "internal"}
+    table["properties"] += [
+        {
+            "name": "buyer",
+            "logicalType": "object",
+            "physicalType": "struct",
+            "properties": [email],
+        },
+        {
+            "name": "lines",
+            "logicalType": "array",
+            "physicalType": "array",
+            "items": {"logicalType": "object", "properties": [sku]},
+        },
+    ]
+    contract["roles"] = [
+        {"role": "analysts", "access": "read"},
+        {"role": "loaders", "access": "write"},
+    ]
+
+
+@pytest.fixture
+def guarded(copy) -> Path:
+    """The product, committed with a contract that says who may read what."""
+    rewrite(copy / NUMBERS, says_who_may_read)
+    return commit(copy)
+
+
+def column(contract: dict, *path: str) -> dict:
+    """A property of `numbers` by its names; `items` is what an array holds."""
+    found = contract["schema"][0]
+    for name in path:
+        if name == "items":
+            found = found["items"]
+        else:
+            (found,) = [p for p in found["properties"] if p["name"] == name]
+    return found
+
+
+LOOSENS = {
+    "a classification lowered": (
+        lambda c: column(c, "id").update(classification="public"),
+        "numbers.id: classification restricted -> public",
+    ),
+    "a classification lowered in an array, in other case": (
+        lambda c: column(c, "lines", "items", "sku").update(classification="PUBLIC"),
+        "numbers.lines.items.sku: classification internal -> PUBLIC",
+    ),
+    "a classification taken away, on a nested property": (
+        lambda c: column(c, "buyer", "email").pop("classification"),
+        "numbers.buyer.email: classification confidential -> none",
+    ),
+    "a classification changed from a word that has no place in the order": (
+        lambda c: column(c, "square").update(classification="internal"),
+        "numbers.square: classification Secret -> internal",
+    ),
+    "a tag removed from a property": (
+        lambda c: column(c, "id").update(tags=[]),
+        "numbers.id: tag pii -> none",
+    ),
+    "a tag removed from an object": (
+        lambda c: c["schema"][0].pop("tags"),
+        "numbers: tag gold -> none",
+    ),
+    "a tag of the contract given another value": (
+        lambda c: c.update(tags=["finance", "region:us"]),
+        "the contract: tag region:eu -> region:us",
+    ),
+    "a role added": (
+        lambda c: c["roles"].append({"role": "everyone", "access": "read"}),
+        "role everyone: no such role -> access read",
+    ),
+    "an access raised": (
+        lambda c: c["roles"][0].update(access="write"),
+        "role analysts: access read -> write",
+    ),
+    "an access changed to a word that has no place in the order": (
+        lambda c: c["roles"][0].update(access="admin"),
+        "role analysts: access read -> admin",
+    ),
+    "an access taken away": (
+        lambda c: c["roles"][1].pop("access"),
+        "role loaders: access write -> none",
+    ),
+    "a role there a second time, with more access": (
+        lambda c: c["roles"].insert(0, {"role": "analysts", "access": "write"}),
+        "role analysts: access read -> write",
+    ),
+}
+TIGHTENS = {
+    "a classification raised": lambda c: column(c, "lines", "items", "sku").update(
+        classification="restricted"
+    ),
+    "a classification where there was none": lambda c: column(c, "buyer").update(
+        classification="internal"
+    ),
+    "a classification in other case": lambda c: column(c, "id").update(
+        classification="Restricted"
+    ),
+    "a tag added": lambda c: column(c, "id").update(tags=["pii", "gdpr"]),
+    "a role removed": lambda c: c["roles"].pop(0),
+    "an access lowered": lambda c: c["roles"][1].update(access="read"),
+    "a new property that anyone may read": lambda c: c["schema"][0]["properties"].append(
+        {
+            "name": "note",
+            "logicalType": "string",
+            "physicalType": "string",
+            "classification": "public",
+        }
+    ),
+}
+
+
+@pytest.mark.parametrize("case", LOOSENS)
+def test_an_edit_that_loosens_access_is_refused_by_the_field(guarded, case):
+    # Holds CON-16.
+    change, finding = LOOSENS[case]
+    rewrite(guarded / NUMBERS, change)
+
+    done = ports(guarded, "breaking", "--base", "main")
+
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert f"{NUMBERS}: compatible" in done.stdout
+    assert f"{NUMBERS}: {finding}\n" in done.stderr
+    assert done.stderr.count(f"{NUMBERS}: ") == 1
+    assert "the label `access-reviewed` on the pull request" in done.stderr
+
+
+@pytest.mark.parametrize("case", TIGHTENS)
+def test_an_edit_that_tightens_access_passes_the_gate(guarded, case):
+    # Holds CON-16.
+    rewrite(guarded / NUMBERS, TIGHTENS[case])
+
+    done = ports(guarded, "breaking", "--base", "main")
+
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert f"{NUMBERS}: compatible" in done.stdout
+    assert NUMBERS not in done.stderr
+    assert "access" not in done.stderr
+    assert "reviewed" not in done.stdout
+
+
+def test_loosened_access_that_was_reviewed_passes_and_is_still_printed(guarded):
+    # Holds CON-17.
+    rewrite(guarded / NUMBERS, LOOSENS["a classification lowered"][0])
+    rewrite(guarded / NUMBERS, LOOSENS["a role added"][0])
+
+    done = ports(guarded, "breaking", "--base", "main", "--access-reviewed")
+
+    assert done.returncode == 0, done.stdout + done.stderr
+    for finding in (
+        "numbers.id: classification restricted -> public",
+        "role everyone: no such role -> access read",
+    ):
+        assert f"{NUMBERS}: reviewed: {finding}\n" in done.stdout
+    assert NUMBERS not in done.stderr
+
+
+def test_a_breaking_edit_is_refused_with_access_reviewed_too(guarded):
+    # Holds CON-17.
+    rewrite(guarded / NUMBERS, LOOSENS["a classification lowered"][0])
+    rewrite(guarded / NUMBERS, lambda c: c["schema"][0]["properties"].pop(1))
+
+    done = ports(guarded, "breaking", "--base", "main", "--access-reviewed")
+
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert (
+        f"{NUMBERS}: a breaking change needs a new version, v2.odcs.yaml beside it"
+        in done.stderr
+    )
+    reviewed = f"{NUMBERS}: reviewed: numbers.id: classification restricted -> public"
+    assert reviewed in done.stdout
 
 
 # ── the consumer's gate: is what is read still what was pulled ───────────────

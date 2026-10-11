@@ -120,7 +120,9 @@ the table a SQL task fills, so a product with stevin and no dbt gets neither.
 **CI holds the promise** (CON-5). On a pull request, every existing
 `contracts/output/<port>/v<N>.odcs.yaml` is compared with the base branch. An edit that
 breaks a reader (a column removed, a type changed) fails the job: a breaking change is a
-new version file, `v<N+1>.odcs.yaml`. A new file always passes.
+new version file, `v<N+1>.odcs.yaml`. A new file always passes. An edit that loosens
+access (a classification lowered, a tag removed, a role added or raised) fails the job
+too, until the pull request carries the label `access-reviewed` (CON-16, CON-17).
 
 **A pipeline keeps what it reads** (CON-13 to CON-15). `contracts:dlt` writes a dlt schema
 from every snapshot into `src/<package>/schemas/<port>.schema.yaml`, with every table
