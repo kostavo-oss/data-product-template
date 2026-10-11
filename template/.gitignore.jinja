@@ -2,18 +2,22 @@
 .dlt/secrets.toml
 # Your own profile and warehouse: see mise.local.toml.example.
 mise.local.toml
-# A token for a local command: the Data Contract CLI and other tools read it from here.
+# A token for a local command: {% if include_contracts %}the Data Contract CLI and other tools read{% else %}a tool reads{% endif %} it from here.
 .env
 .env.*
 
 # What a local run leaves behind.
 *.duckdb
 *.duckdb.wal
+{%- if include_dbt %}
 dbt/target/
 dbt/dbt_packages/
 dbt/logs/
+{%- endif %}
+{%- if include_contracts %}
 # What `mise run contracts:catalog` writes.
 site/
+{%- endif %}
 
 .venv/
 dist/

@@ -10,7 +10,12 @@ from conftest import BARE, files, generate
 from copier.errors import CopierError
 
 OPTIONAL = {
-    "dbt": {"dbt/dbt_project.yml", "dbt/profiles.yml", "dbt/models/squares.sql"},
+    "dbt": {
+        "dbt/dbt_project.yml",
+        "dbt/profiles.yml",
+        "dbt/models/squares.sql",
+        "ops/dbt_env.py",
+    },
     "lely": {"lely.yml", ".github/workflows/plan.yml", ".github/workflows/apply.yml"},
     "scope": {"ops/scope.py"},
 }
@@ -26,7 +31,6 @@ ALWAYS = {
     ".dlt/config.toml",
     ".gitignore",
     "ops/names.py",
-    "ops/dbt_env.py",
     ".github/workflows/ci.yml",
     ".copier-answers.yml",
 }
@@ -45,7 +49,7 @@ def test_the_full_answers_write_everything(full):
 
 
 def test_the_bare_answers_skip_what_was_not_wanted(bare):
-    # Holds GEN-5, TSK-1, TSK-2, SEC-3.
+    # Holds TSK-1, TSK-2, SEC-3.
     written = files(bare)
 
     assert written >= ALWAYS
@@ -173,7 +177,7 @@ def test_the_jinja_in_the_models_is_only_what_dbt_should_see(full):
 
 
 def test_the_readme_explains_each_part_that_was_included(full, bare):
-    # Holds GEN-5, SEC-3, SEC-4, DOC-2.
+    # Holds SEC-3, SEC-4, DOC-2.
     full_readme = (full / "README.md").read_text()
     bare_readme = (bare / "README.md").read_text()
 
@@ -203,6 +207,60 @@ def test_the_scope_is_a_step_before_the_bundle(full, bare):
 
     bare_variables = yaml.safe_load((bare / "databricks.yml").read_text())["variables"]
     assert "secret_scope" not in bare_variables
+
+
+# A stand-in for uv: it writes down what it was asked, and fails when asked for the
+# script `$FAILS` names. For `ops/names.py` it prints the names a deploy would give.
+STAND_IN = """#!/bin/sh
+echo "$*" >> "$ASKED"
+case "$*" in *"$FAILS"*) echo "it could not be read" >&2; exit 1 ;; esac
+case "$*" in *ops/names.py*) echo "export RAW=r RAW_STAGING=s SILVER=t" ;; esac
+"""
+
+
+@pytest.mark.parametrize(
+    ("task", "fails", "asked"),
+    [
+        ("ingest", "ops/names.py", ["run python ops/names.py"]),
+        ("transform", "ops/names.py", ["run python ops/names.py"]),
+        (
+            "transform",
+            "ops/dbt_env.py",
+            ["run python ops/names.py", "run python ops/dbt_env.py"],
+        ),
+    ],
+)
+def test_a_laptop_task_stops_when_the_names_cannot_be_read(
+    full, tmp_path, task, fails, asked
+):
+    """The task ends there, with the script's own words: it does not go on to load or
+    build with names it does not have."""
+    # Holds TSK-4.
+    script = tomllib.loads((full / "mise.toml").read_text())["tasks"][task]["run"]
+    stand_in = tmp_path / "bin" / "uv"
+    stand_in.parent.mkdir()
+    stand_in.write_text(STAND_IN)
+    stand_in.chmod(0o755)
+    environment = {
+        "PATH": f"{stand_in.parent}:/usr/bin:/bin",
+        "ASKED": str(tmp_path / "asked"),
+        "FAILS": fails,
+        "DATABRICKS_CONFIG_PROFILE": "none",
+        "WAREHOUSE_ID": "none",
+        "CATALOG": "main",
+    }
+
+    done = subprocess.run(
+        ["bash", "-c", script, task, "example"],
+        cwd=full,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+
+    assert done.returncode == 1
+    assert done.stderr == "it could not be read\n"
+    assert (tmp_path / "asked").read_text().splitlines() == asked
 
 
 def test_git_ignores_a_file_of_credentials(full, bare, tmp_path):

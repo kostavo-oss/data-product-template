@@ -23,10 +23,16 @@ Every rule comes with its reason. Keep a rule when the reason holds; say so when
   New models go in `dbt/models/`; `mise run check` parses them.
 {%- endif %}
 {%- if secret_scope %}
+{%- if include_lely %}
 - **The secret scope is a step, `ops/scope.py`, not a name typed in the job.** The bundle gets
   it as `${var.secret_scope}`; under lely from `${steps.scope.name}`. A new step of the
   deploy is written the same way: a class, `uv run ops/<step>.py --help`, then a line in
   `lely.yml`.
+{%- else %}
+- **The secret scope is made by `ops/scope.py`, not by hand on the workspace.** The bundle
+  gets its name as `${var.secret_scope}`, and `mise run scope` makes it on a target before
+  the job first runs there. A scope made by hand is one a new target does not bring.
+{%- endif %}
 {%- endif %}
 {%- if include_contracts %}
 - **An output contract (`contracts/output/<port>/v<N>.odcs.yaml`) is a promise: a breaking

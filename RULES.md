@@ -28,7 +28,7 @@ laptop, is in [TRIED.md](TRIED.md).
 The areas: `GEN` generating and updating a product, `BND` the bundle, `DLT` the
 pipelines, `DBT` the dbt project, `TSK` the mise tasks, `DEP` the deploy with lely, `SEC`
 secrets, `CON` contracts, `STV` stevin, `ACC` the access examples, `DOC` the pages a
-product gets.
+product gets, `REL` a release of the template.
 
 ## GEN — generating and updating a product
 
@@ -60,17 +60,14 @@ product gets.
   `tests/test_stevin.py::test_no_template_syntax_survives_and_every_yaml_file_parses`,
   `tests/test_contracts.py::test_ci_compares_the_contracts_with_the_base_branch`.
 - **GEN-5** — A part that was not chosen is not in the product: none of its files, none
-  of its tasks, and no mention of it outside `.copier-answers.yml`, which records every
-  answer.
-  Held by: `tests/test_template.py::test_the_bare_answers_skip_what_was_not_wanted`,
-  `tests/test_template.py::test_the_readme_explains_each_part_that_was_included`,
-  `tests/test_contracts.py::test_nothing_of_contracts_is_written_when_not_wanted`,
-  `tests/test_stevin.py::test_without_stevin_nothing_mentions_it`.
-  Not kept yet: #18 — it holds for stevin, lely and caland. Every product's `.gitignore`
-  names the Data Contract CLI and `contracts:catalog`. A product without dbt gets
-  `ops/dbt_env.py`, dbt's folders in `.gitignore` and in the `clean` task, and a comment
-  about dbt in `pyproject.toml`. A product with a secret scope and without lely is
-  pointed at a `lely.yml` it does not have, in its `README.md` and its `AGENTS.md`.
+  of its tasks and tools, and no mention of it outside `.copier-answers.yml`, which
+  records every answer. This holds for every combination of the answers, and the
+  product's `check` passes with every part and with none. One mention stays: with a
+  secret scope and without lely, `ops/scope.py` imports lely's step library, which it is
+  written with.
+  Held by: `tests/test_parts.py::test_a_part_that_was_not_chosen_leaves_nothing`,
+  `tests/test_parts.py::test_the_tasks_and_the_tools_are_those_of_the_parts_chosen`,
+  `tests/test_parts.py::test_the_gate_passes_with_everything_and_with_nothing`.
 - **GEN-6** — `copier update` in a product brings the template's next change to the
   wiring: the bundle, the job, the tasks, the workflows, the scripts in `ops/` and
   `AGENTS.md`. It never touches what the product owns: `README.md`, `.dlt/config.toml`,
@@ -168,8 +165,10 @@ product gets.
 - **TSK-4** — `mise run ingest -- <pipeline>` loads from a laptop into the schemas the
   dev target deployed. `ops/names.py` reads their names back from
   `databricks bundle summary`, and says what is missing when there is no CLI or no
-  deploy.
-  Held by: `tests/test_generated_project.py::test_the_names_script_says_what_is_missing`.
+  deploy. `ingest` and `transform` stop there, and run nothing without the names or the
+  sign-in.
+  Held by: `tests/test_generated_project.py::test_the_names_script_says_what_is_missing`,
+  `tests/test_template.py::test_a_laptop_task_stops_when_the_names_cannot_be_read`.
 - **TSK-5** — A developer's own profile, warehouse and catalog are in `mise.local.toml`,
   which git ignores. `mise.local.toml.example` is committed.
   Held by: `tests/test_template.py::test_git_ignores_a_file_of_credentials`.
@@ -386,3 +385,18 @@ product gets.
   the job without dbt; deploy, run the job, apply the tables with dbt.
   Held by: `tests/test_template.py::test_the_readme_explains_each_part_that_was_included`,
   `tests/test_stevin.py::test_the_readme_has_the_tasks_and_the_order_of_a_first_run`.
+
+## REL — a release of the template
+
+- **REL-1** — A release is a tag on `main`, `v<major>.<minor>.<patch>`. `copier copy`
+  without `--vcs-ref` writes a product from the newest release, never from a pre-release
+  tag or from what `main` has since, and records the tag as `_commit` in
+  `.copier-answers.yml`. `copier update` moves a product from the release it records to
+  the newest one, also a product that was made before the first tag, and refuses a
+  product with changes that are not committed.
+  Held by: `tests/test_release.py::test_copier_takes_the_newest_release_and_not_what_main_has_since`,
+  `tests/test_release.py::test_an_update_goes_from_the_release_a_product_has_to_the_newest`.
+- **REL-2** — `CHANGELOG.md` has a section for every release, the newest first, under
+  `[Unreleased]`. A section says what changes for a product. The release the README
+  names with `--vcs-ref` is the newest one the changelog has.
+  Held by: `tests/test_release.py::test_the_changelog_has_a_section_for_every_release_newest_first`.

@@ -154,7 +154,7 @@ def test_contracts_are_written_with_and_without_dbt(full, landed):
 
 
 def test_nothing_of_contracts_is_written_when_not_wanted(bare, plain):
-    # Holds GEN-5, DOC-1.
+    # Holds DOC-1.
     for project in (bare, plain):
         written = files(project)
         assert not (CONTRACTS & written)
