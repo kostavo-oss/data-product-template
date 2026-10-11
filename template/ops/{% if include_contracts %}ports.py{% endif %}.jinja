@@ -16,11 +16,20 @@ Contract CLI does the work, as a pinned command; this file only knows where thin
     breaking --base REF     before a merge: no breaking edit to a contract that is out
     catalog                 the contracts as pages, in site/contracts/
     edit [PORT]             an output contract in the Data Contract Editor, on this machine
+{%- if include_dbt %}
     dbt [--dry-run]         columns and tests from the output contracts into dbt/
+{%- endif %}
     dlt                     a dlt schema from every input snapshot, for a pipeline
+
+{%- if include_dbt %}
 
 Exit codes: 0 fine, 1 could not run, 2 refused. `lint`, `test`, `catalog` and `dbt` hand
 on what the CLI says, and the CLI says 1 for a contract that fails.
+{%- else %}
+
+Exit codes: 0 fine, 1 could not run, 2 refused. `lint`, `test` and `catalog` hand on what
+the CLI says, and the CLI says 1 for a contract that fails.
+{%- endif %}
 """
 
 import argparse
@@ -283,6 +292,7 @@ def editor(args) -> int:
         return subprocess.run(words, cwd=ROOT, check=False).returncode
     except KeyboardInterrupt:  # Ctrl+C is how the editor is closed
         return FINE
+{%- if include_dbt %}
 
 
 def dbt(args) -> int:
@@ -291,6 +301,7 @@ def dbt(args) -> int:
     contracts = [shown(contract("output", port)) for port in ports("output")]
     dry = ["--dry-run"] if args.dry_run else []
     return cli("dbt", "sync", *contracts, "--project-dir", "dbt", *dry)
+{%- endif %}
 
 
 # ODCS's logical types, by the name dlt has for each. A `number` says nothing of its
@@ -452,9 +463,11 @@ def main() -> int:
     against = verbs.add_parser("breaking")
     against.add_argument("--base", required=True, help="the git ref to compare with")
     against.set_defaults(run=breaking)
+{%- if include_dbt %}
     sync = verbs.add_parser("dbt")
     sync.add_argument("--dry-run", action="store_true", help="show, and write nothing")
     sync.set_defaults(run=dbt)
+{%- endif %}
     args = parser.parse_args()
     try:
         return args.run(args)

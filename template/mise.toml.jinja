@@ -58,7 +58,7 @@ run = ["uv run ruff check --fix .", "uv run ruff format ."]
 
 [tasks.clean]
 description = "Remove what runs and builds leave behind"
-run = "rm -rf dist site *.duckdb *.duckdb.wal .ruff_cache dbt/target dbt/dbt_packages dbt/logs"
+run = "rm -rf dist{% if include_contracts %} site{% endif %} *.duckdb *.duckdb.wal .ruff_cache{% if include_dbt %} dbt/target dbt/dbt_packages dbt/logs{% endif %}"
 {%- if include_contracts %}
 
 # ── contracts: what the product promises and what it reads ────────────────────

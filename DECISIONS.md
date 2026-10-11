@@ -179,3 +179,22 @@ places went stale in one of them, and the file contradicted itself. Now each kin
 fact has one file (CLAUDE.md), as in `kostavo-oss/tools`.
 
 Replaced: the spec.
+
+## 22. 2026-10-11 — A part left out is searched for in every combination
+
+The tests generate all 48 combinations of the yes/no answers, each with a secret scope
+and without one, and search every file of each for the names of the parts it left out.
+Three leaks had stood because no test generated the answers that showed them: dbt's
+folders in every `.gitignore`, `ops/dbt_env.py` without dbt, and a pointer to `lely.yml`
+in a product with a secret scope and without lely. Generating is in-process and takes
+seconds, so a chosen few combinations would save nothing and miss the next one.
+
+`.gitignore` and `ops/ports.py` are rendered now, so that the first has no line of a
+part that is not there and the second has no `dbt` verb without dbt. One mention is
+allowed, in the test and by name: `ops/scope.py` imports lely's step library in a
+product without lely. The script is a lely step, and that is what gives it `plan`,
+`apply`, `destroy`, `status` and `check`.
+
+Rejected: allowing the `dbt` verb of `ops/ports.py` in a product without dbt, where it
+could only say that there is no dbt project. And a second scope script without the
+library for a product without lely: two scripts to keep in step, for one import.

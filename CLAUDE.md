@@ -45,8 +45,9 @@ There is no `spec/` folder, and none comes back.
   of its own, such as a dbt model or a workflow, is copied as it is. An optional part is
   a file or folder whose name carries its condition:
   `{% if include_dbt %}dbt{% endif %}`.
-- **Every optional part stays optional** (GEN-5), and `include_dbt` and
-  `include_stevin` are apart (STV-1): all four combinations are generated and checked.
+- **Every optional part stays optional** (GEN-5): every combination of the answers is
+  generated and searched for the names of what it left out. A new part gets its names
+  in `tests/test_parts.py`. `include_dbt` and `include_stevin` are apart (STV-1).
 - **`_skip_if_exists` in `copier.yml` names what a product owns** (GEN-6). Everything
   else is the wiring `copier update` may move. A new kind of file is one or the other:
   say which, and keep `tests/test_update.py` in step.
@@ -68,6 +69,7 @@ tests/test_template.py           what is written: the bundle, the job, the tasks
 tests/test_generated_project.py  a generated product, run: its checks and its example (DLT, DBT)
 tests/test_contracts.py          the contracts and ops/ports.py, run (CON)
 tests/test_stevin.py             stevin and the access examples (STV, ACC)
+tests/test_parts.py              every combination of the parts: what was left out leaves nothing (GEN-5)
 tests/test_update.py             copier update on a product (GEN-6)
 tests/test_rules.py              RULES.md against the tests and the documents
 ```
@@ -75,7 +77,8 @@ tests/test_rules.py              RULES.md against the tests and the documents
 The tests generate eight products as fixtures: the full and the bare answers
 (`conftest.py`), contracts without dbt and dbt without contracts (`test_contracts.py`),
 and stevin with and without dbt, each with everything else and with nothing else
-(`test_stevin.py`). Some tests generate one more of their own.
+(`test_stevin.py`). `test_parts.py` generates all 96 combinations of the answers. Some
+tests generate one more of their own.
 
 ## Commands
 

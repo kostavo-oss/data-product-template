@@ -14,8 +14,12 @@ dependencies = [
 ingest = "{{ package_name }}.cli:app"
 
 [dependency-groups]
+{%- if include_dbt %}
 # What a laptop needs and the job doesn't: a local database to load into, the linter,
 # and dbt to run the models from here.
+{%- else %}
+# What a laptop needs and the job doesn't: a local database to load into, and the linter.
+{%- endif %}
 dev = [
     "dlt[duckdb]>=1.30,<2",
     "ruff>=0.6",

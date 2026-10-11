@@ -10,7 +10,12 @@ from conftest import BARE, files, generate
 from copier.errors import CopierError
 
 OPTIONAL = {
-    "dbt": {"dbt/dbt_project.yml", "dbt/profiles.yml", "dbt/models/squares.sql"},
+    "dbt": {
+        "dbt/dbt_project.yml",
+        "dbt/profiles.yml",
+        "dbt/models/squares.sql",
+        "ops/dbt_env.py",
+    },
     "lely": {"lely.yml", ".github/workflows/plan.yml", ".github/workflows/apply.yml"},
     "scope": {"ops/scope.py"},
 }
@@ -26,7 +31,6 @@ ALWAYS = {
     ".dlt/config.toml",
     ".gitignore",
     "ops/names.py",
-    "ops/dbt_env.py",
     ".github/workflows/ci.yml",
     ".copier-answers.yml",
 }
@@ -45,7 +49,7 @@ def test_the_full_answers_write_everything(full):
 
 
 def test_the_bare_answers_skip_what_was_not_wanted(bare):
-    # Holds GEN-5, TSK-1, TSK-2, SEC-3.
+    # Holds TSK-1, TSK-2, SEC-3.
     written = files(bare)
 
     assert written >= ALWAYS
@@ -173,7 +177,7 @@ def test_the_jinja_in_the_models_is_only_what_dbt_should_see(full):
 
 
 def test_the_readme_explains_each_part_that_was_included(full, bare):
-    # Holds GEN-5, SEC-3, SEC-4, DOC-2.
+    # Holds SEC-3, SEC-4, DOC-2.
     full_readme = (full / "README.md").read_text()
     bare_readme = (bare / "README.md").read_text()
 

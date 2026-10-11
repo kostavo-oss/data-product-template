@@ -153,7 +153,7 @@ def test_the_four_combinations_write_what_each_needs(full, bare, sql, both):
 
 def test_without_stevin_nothing_mentions_it(full, bare):
     """The answers file records the answer, as it does for every question."""
-    # Holds GEN-2, GEN-5.
+    # Holds GEN-2.
     for project in (full, bare):
         for path in files(project) - {".copier-answers.yml"}:
             text = (project / path).read_text(errors="replace").lower()

@@ -60,17 +60,14 @@ product gets.
   `tests/test_stevin.py::test_no_template_syntax_survives_and_every_yaml_file_parses`,
   `tests/test_contracts.py::test_ci_compares_the_contracts_with_the_base_branch`.
 - **GEN-5** — A part that was not chosen is not in the product: none of its files, none
-  of its tasks, and no mention of it outside `.copier-answers.yml`, which records every
-  answer.
-  Held by: `tests/test_template.py::test_the_bare_answers_skip_what_was_not_wanted`,
-  `tests/test_template.py::test_the_readme_explains_each_part_that_was_included`,
-  `tests/test_contracts.py::test_nothing_of_contracts_is_written_when_not_wanted`,
-  `tests/test_stevin.py::test_without_stevin_nothing_mentions_it`.
-  Not kept yet: #18 — it holds for stevin, lely and caland. Every product's `.gitignore`
-  names the Data Contract CLI and `contracts:catalog`. A product without dbt gets
-  `ops/dbt_env.py`, dbt's folders in `.gitignore` and in the `clean` task, and a comment
-  about dbt in `pyproject.toml`. A product with a secret scope and without lely is
-  pointed at a `lely.yml` it does not have, in its `README.md` and its `AGENTS.md`.
+  of its tasks and tools, and no mention of it outside `.copier-answers.yml`, which
+  records every answer. This holds for every combination of the answers, and the
+  product's `check` passes with every part and with none. One mention stays: with a
+  secret scope and without lely, `ops/scope.py` imports lely's step library, which it is
+  written with.
+  Held by: `tests/test_parts.py::test_a_part_that_was_not_chosen_leaves_nothing`,
+  `tests/test_parts.py::test_the_tasks_and_the_tools_are_those_of_the_parts_chosen`,
+  `tests/test_parts.py::test_the_gate_passes_with_everything_and_with_nothing`.
 - **GEN-6** — `copier update` in a product brings the template's next change to the
   wiring: the bundle, the job, the tasks, the workflows, the scripts in `ops/` and
   `AGENTS.md`. It never touches what the product owns: `README.md`, `.dlt/config.toml`,

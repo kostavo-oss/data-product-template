@@ -190,6 +190,20 @@ without all three), and both (the same two ways).
 
 `tests/test_stevin.py` runs most of this again on every change.
 
+## 2026-10-11: every combination of the parts, on a laptop
+
+For [#18](https://github.com/kostavo-oss/data-product-template/issues/18), with copier
+9, in-process, from the working tree. No workspace and no network.
+
+| What | Held? |
+|---|---|
+| Generating all 48 combinations of dbt, stevin (with and without the access examples), lely, caland and contracts, each with a secret scope and without: 96 products | yes |
+| Searching every file of each for the names of the parts it left out, `.copier-answers.yml` aside | found, before the fix: dbt's folders and `site/` in `.gitignore` and in the `clean` task, `ops/dbt_env.py`, a comment about dbt in `pyproject.toml`, the `dbt` verb in `ops/ports.py`, and `lely.yml` named in `README.md`, `AGENTS.md` and `ops/scope.py` of a product with a secret scope and without lely. After it: nothing, but the import of lely's library in that `ops/scope.py` |
+| The product with every part, compared with what `main` generates | the same files with the same bytes |
+| Every command of the `check` task, in the product with every part and in the one with none, after `uv sync` | exit 0 each |
+
+`tests/test_parts.py` runs this again on every change.
+
 ## Not yet
 
 On a workspace:
