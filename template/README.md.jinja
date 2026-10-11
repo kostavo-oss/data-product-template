@@ -81,9 +81,12 @@ a plan that was reviewed on a pull request; the first pull request puts that rig
 `databricks bundle deploy -t prod` works without lely; lely adds the plan and the review.
 {%- if include_stevin and not include_dbt %}
 
-The tables are a step of the same deploy: `tables` in `lely.yml`, after `bundle`, runs
-`stevin apply` (`ops/tables.py`). lely's plan shows that step as one run and not what it
-would change; `mise run tables:plan` shows that.
+The tables are a step of the same deploy: `tables` in `lely.yml`, after `bundle`, is
+lely's own `stevin` step. The plan lists what changes on each table, beside the bundle's
+changes, and `apply` runs the plan that was reviewed. A change that loses data needs
+`lely apply --allow-destructive`, and `lely destroy` leaves the tables alone. stevin plans
+against schemas that are there: deploy a new target once with `mise run deploy` before
+its first plan.
 {%- elif include_stevin %}
 
 stevin is no step of this deploy. Its one spec governs a table the job lands, and that
@@ -112,8 +115,9 @@ stevin runs at a deploy and never in the job. The job only reads and writes rows
 **What is stevin's here.** dbt builds `squares` and owns it: its grants and tags go in
 dbt's config, and stevin refuses a spec for it. dlt lands `numbers` and owns its shape.
 `stevin/tables/numbers.yml` names no column types, so it only governs that table: a tag
-and a grant. `stevin/stevin.yml` says whose table is whose, and a new dbt model gets a
-line there. The spec's group is a placeholder: replace it with a group of the account
+and a grant. `stevin/stevin.yml` says whose table is whose{% if include_access_examples %}, and a new dbt model gets a
+line there{% else %}, one line for each schema: a
+new dbt model needs none{% endif %}. The spec's group is a placeholder: replace it with a group of the account
 before the first apply. The first apply comes after the first run of the job, because
 stevin does not make a table it does not shape.
 {%- else %}
@@ -142,6 +146,10 @@ provider, and stevin cannot make one. Policies that mask by tag are written in T
 or SQL.
 
 stevin is pinned in `mise.toml`, under `[tools]`: every release so far is a pre-release.
+{%- if include_lely %}
+lely is pinned there too, and lely's step for stevin names the oldest stevin it takes: move
+the two together.
+{%- endif %}
 {%- if include_access_examples %}
 
 **An access model to start from** is in `stevin/security/`: groups per schema, rows by

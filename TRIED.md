@@ -254,6 +254,35 @@ Found while trying:
   `1 newer pipx:lely release hidden by minimum_release_age`. A release is not what
   `mise install` brings on its first day.
 
+## 2026-10-11: lely's own step for the tables, and the pins, on a laptop
+
+For [#19](https://github.com/kostavo-oss/data-product-template/issues/19), with lely
+0.4.0 and stevin 0.4.0a2 from PyPI, both released that day, uv 0.11.15 and mise
+2026.10.6. No workspace was reached: no plan, no apply, no deploy. The products were
+generated with copier from the working tree. mise ran with a home folder of its own,
+empty at the start.
+
+| What | Printed |
+|---|---|
+| `mise latest pipx:lely`, a few minutes after lely 0.4.0 was on PyPI | `0.3.0`, and `2 newer pipx:lely releases hidden by minimum_release_age` |
+| `mise latest pipx:lely@0.4` | nothing: a prefix finds no hidden release either |
+| `mise settings ls --all`, in the empty home | no `minimum_release_age` is set: it is mise's own default. `minimum_release_age_excludes` is `[]` |
+| `mise install` in a product with every part, and in one with every part but dbt | exit 0: python 3.12.15, uv 0.13.0, the Databricks CLI 1.20.0, **lely 0.4.0**, **stevin 0.4.0a2**, caland 0.7.1 (`latest`; 0.7.3 was a few hours old) |
+| `uv sync` in both | exit 0; the lock file has leeghwater 0.2.1, dlt 1.31.0 and duckdb 1.5.6 |
+| `lely --version`, `stevin --version`, `caland --version`, through `mise exec` | `lely 0.4.0`, `stevin 0.4.0a2`, `caland 0.7.1` |
+| `lely validate`, every part but dbt | `3 steps`, `tables  takes and gives nothing`; exit 0 (2 steps with dbt, where stevin is no step) |
+| `lely steps` | `stevin  built-in`, `Tables, views, functions and grants, planned and applied by stevin.`, `can    plan, apply, list`; exit 0 |
+| `stevin validate -c stevin/stevin.yml`, in both, for the default target and for `prod` | `Not settled here: ${resources.schemas.raw.name}, ${resources.schemas.silver.name}. …` and `1 spec OK.`; then `1 spec OK.`; exit 0, no warning |
+| `mise run check` in both | exit 0, with `1 spec OK.` and `3 specs OK.` for the access examples |
+| `mise run plan`, `apply`, `destroy`, `tables:plan`, `tables:apply`, each with `-- --help` | the tool's usage for the verb; exit 0 each. None has run |
+| with dbt and no access examples, a spec for a new table `other` in `silver` | `error: main.<product>.other is dbt's: put grants and tags in dbt's config, and use a schema-level policy for masks`; exit 1 |
+| the same for the default target | the same refusal, with the schema shown as `resources_schemas_silver_name`: `validate` does not ask what a development target deploys it as |
+| with dbt and the access examples, `owned_elsewhere` with `${catalog}.${resources.schemas.silver.name}.*: dbt` | `stevin/security/orders.yml: error: main.<product>.orders is dbt's …`, the same for `region_members`, `2 problems in 3 specs.`; exit 1. So that product names dbt's tables one by one ([DECISIONS.md](DECISIONS.md), 24) |
+| the same product as the template writes it, the examples named on their own and switched on | `3 specs OK.`; `4 specs OK.`; exit 0 |
+
+`tests/test_stevin.py` runs the validations again on every change, with lely and stevin
+at the versions the product pins.
+
 ## Not yet
 
 On a workspace:
@@ -283,9 +312,22 @@ On a workspace:
   the task's `parameters` and the relative `file.path` are written from the Databricks
   documentation. The task has not run, and the bundle of a product with stevin has not
   been validated by the CLI. [#5](https://github.com/kostavo-oss/data-product-template/issues/5)
-- **The `tables` step under lely**: `lely plan` and `lely apply` with it, and the `plan`
-  and `apply` workflows of a product that has it. The step's words were seen by a
-  stand-in only. [#5](https://github.com/kostavo-oss/data-product-template/issues/5)
+- **The `tables` step under lely**: `lely plan` and `lely apply` with lely's own `stevin`
+  step, and the `plan` and `apply` workflows of a product that has it. lely has taken
+  the config and named what the step can do; nothing has planned. lely's own docs say
+  the step has not run on a workspace or against the real `stevin` command.
+  [#5](https://github.com/kostavo-oss/data-product-template/issues/5)
+- **The first plan of a target that was never deployed**, with the `tables` step.
+  stevin's source refuses to plan a table whose schema the bundle declares and has not
+  made. That was read, not seen: if it holds, the first `lely plan` of a new target
+  stops at `tables`, and the `plan` workflow of a new repository posts no plan until
+  somebody has deployed the bundle once.
+  [#27](https://github.com/kostavo-oss/data-product-template/issues/27)
+- **A schema named by reference in `owned_elsewhere`, on a development target.**
+  `validate` takes the key and does not settle it. That `stevin plan` reads
+  `${resources.schemas.<key>.name}` as the prefixed name a development target deploys
+  has not been seen from a product.
+  [#5](https://github.com/kostavo-oss/data-product-template/issues/5)
 - **With dbt: the tag and the grant on `numbers`**, the refusal on a new target before
   the job has run, and stevin telling dbt's table from its own. [#5](https://github.com/kostavo-oss/data-product-template/issues/5)
 - **A grant taking effect**, on a table or on a schema. The grants in

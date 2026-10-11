@@ -58,8 +58,14 @@ Every rule comes with its reason. Keep a rule when the reason holds; say so when
 - **A table dbt builds takes no stevin spec: its grants and tags go in dbt's config.**
   stevin refuses such a spec, at `mise run tables:validate` and at the plan. dbt replaces
   the grants it does not list and recreates the table on a run, which drops what a second
+{%- if include_access_examples %}
   writer set. `stevin/stevin.yml` says which tables are dbt's: a new model gets a line
   there. stevin's are the tables dbt reads: the landed ones, governed and never shaped.
+{%- else %}
+  writer set. `stevin/stevin.yml` says that every table in `silver` is dbt's and every
+  table in `raw` is dlt's. stevin's are the tables dbt reads: the landed ones, governed
+  and never shaped.
+{%- endif %}
 {%- else %}
 - **A new table is a spec in `stevin/tables/` and a `.sql` file in `sql/`, with a task in
   the job.** stevin makes the table at deploy and the task fills it. A `CREATE TABLE` in

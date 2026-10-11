@@ -25,7 +25,7 @@ PARTS = ("dbt", "stevin", "access_examples", "lely", "caland", "contracts")
 # What names a part: in a path or on a line, whatever the case.
 NAMES = {
     "dbt": r"dbt",
-    "stevin": r"stevin|tables:(?:validate|plan|apply|drift)|ops/tables\.py",
+    "stevin": r"stevin|tables:(?:validate|plan|apply|drift)|ops/tables\.py|name: tables",
     "access_examples": r"security|by_region|region_members|access (?:model|example)",
     "lely": r"lely",
     "caland": r"caland",

@@ -214,3 +214,40 @@ page on GitHub as what a release is: copier does not read it, and it would be a 
 changelog.
 
 When the first tag is made is the owner's word (#22), and is not decided here.
+
+## 24. 2026-10-11 — The tables are lely's own step, and a schema is named by reference
+
+Supersedes 16 and 17, for the step and for `owned_elsewhere`. lely 0.4.0 applies its
+`stevin` step, and stevin 0.4.0a2 takes `${resources.schemas.<key>.name}` as one part of
+a key. So `ops/tables.py` is gone, the step in `lely.yml` is `uses: stevin`, and the plan
+a pull request reviews lists the table changes (#19). `owned_elsewhere` has one pattern
+for each schema: `raw` is dlt's in every product with stevin, and `silver` is dbt's with
+dbt. Without dbt the line for `raw` is new: nothing needs it today, and it says whose a
+landed table is before somebody writes a spec for one.
+
+With dbt and the access examples, dbt's tables are still named one by one. Tried:
+with `silver.*: dbt`, `stevin validate` refused the examples' `orders` and
+`region_members` as dbt's, and the product's own `check` failed. The examples are tables
+of stevin's in the schema dbt builds in, and stevin has no way to say "all of this
+schema but these".
+
+Rejected: a schema of their own for the examples, which is a fourth schema in the bundle
+for files nobody has to switch on. And leaving the `tables:*` tasks out of a product
+with lely: with dbt they are the only way to apply, and without lely they are all there
+is.
+
+Not decided here: what a first plan does on a target the bundle has not deployed (#27).
+
+## 25. 2026-10-11 — lely is pinned to an exact version too
+
+mise does not show a release on its first day (`minimum_release_age`, its own default),
+so `latest` brought lely 0.3.0 on the day 0.4.0 came out, and `lely.yml` needs 0.4.0. A
+prefix such as `0.4` found nothing that day either. An exact version is installed
+whatever its age, which is how stevin was already pinned. So `mise.toml` names lely
+0.4.0 and stevin 0.4.0a2, and a product gets a newer one when the template names it or
+when its owner changes the line.
+
+Rejected: `minimum_release_age_excludes` in the product's `mise.toml`, which turns a
+safety setting off for everybody who installs the product. And waiting a day, which
+makes a release of the template depend on the clock. caland stays `latest`: nothing in
+the product needs a caland of a certain day.

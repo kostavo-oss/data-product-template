@@ -87,7 +87,7 @@ copier.yml                       the questions, and what a product owns
 template/                        everything a product gets
 template/README.md.jinja         the product's README: its how-to
 template/AGENTS.md.jinja         the product's rules for a coding agent (DOC-1)
-template/ops/                    the product's scripts: names, dbt sign-in, ports, scope, tables
+template/ops/                    the product's scripts: names, dbt sign-in, ports, scope
 tests/conftest.py                the full and the bare answers, and how a product is generated
 tests/test_template.py           what is written: the bundle, the job, the tasks (GEN, BND, TSK, SEC)
 tests/test_generated_project.py  a generated product, run: its checks and its example (DLT, DBT)
