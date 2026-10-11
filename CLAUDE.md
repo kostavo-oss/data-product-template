@@ -17,6 +17,7 @@ One place per fact. Write a fact where it lives, and link to it from anywhere el
 | What ran for real, and what did not | `TRIED.md` |
 | What a tool or Databricks does that the template leans on | a comment in the template file or the test that leans on it |
 | An idea that is wanted and not built | a GitHub issue |
+| What a release changes for a product | `CHANGELOG.md` |
 | How it came to be | git |
 
 There is no `spec/` folder, and none comes back.
@@ -53,8 +54,31 @@ There is no `spec/` folder, and none comes back.
   say which, and keep `tests/test_update.py` in step.
 - **Nothing under `template/` cites a rule or names a team, a platform or a customer**
   (GEN-7). A product has no copy of `RULES.md`.
-- Small pull-request-sized commits, conventional commit messages. A release is the
-  owner's word.
+- **A pull request that changes what a product gets adds a line under `[Unreleased]` in
+  `CHANGELOG.md`**, saying what changes for a product.
+- Small pull-request-sized commits, conventional commit messages.
+
+## A release
+
+A release is a tag on `main`, which copier takes (REL-1). It is the owner's word, each
+time. Nothing but the tag and the changelog carries the version: `pyproject.toml` is the
+tests' own and stays `0.0.0`.
+
+1. A pull request moves the lines under `[Unreleased]` in `CHANGELOG.md` to a new
+   section, `## [X.Y.Z]`, and names that version in the README's `--vcs-ref` example
+   (REL-2). `mise run check` passes.
+2. On the owner's word, after that pull request is merged:
+
+   ```sh
+   git fetch origin
+   git tag -a vX.Y.Z -m "vX.Y.Z" origin/main
+   git push origin vX.Y.Z
+   ```
+
+3. The tag is recorded in `TRIED.md`, with its date, in the next pull request.
+
+A tag is never moved or deleted: a product records the tag it was made from. A
+pre-release is a tag such as `vX.Y.Za1`; copier does not take it unless asked.
 
 ## Layout
 
@@ -71,6 +95,7 @@ tests/test_contracts.py          the contracts and ops/ports.py, run (CON)
 tests/test_stevin.py             stevin and the access examples (STV, ACC)
 tests/test_parts.py              every combination of the parts: what was left out leaves nothing (GEN-5)
 tests/test_update.py             copier update on a product (GEN-6)
+tests/test_release.py            what a tag promises, and the changelog (REL)
 tests/test_rules.py              RULES.md against the tests and the documents
 ```
 

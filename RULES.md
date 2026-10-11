@@ -28,7 +28,7 @@ laptop, is in [TRIED.md](TRIED.md).
 The areas: `GEN` generating and updating a product, `BND` the bundle, `DLT` the
 pipelines, `DBT` the dbt project, `TSK` the mise tasks, `DEP` the deploy with lely, `SEC`
 secrets, `CON` contracts, `STV` stevin, `ACC` the access examples, `DOC` the pages a
-product gets.
+product gets, `REL` a release of the template.
 
 ## GEN — generating and updating a product
 
@@ -385,3 +385,18 @@ product gets.
   the job without dbt; deploy, run the job, apply the tables with dbt.
   Held by: `tests/test_template.py::test_the_readme_explains_each_part_that_was_included`,
   `tests/test_stevin.py::test_the_readme_has_the_tasks_and_the_order_of_a_first_run`.
+
+## REL — a release of the template
+
+- **REL-1** — A release is a tag on `main`, `v<major>.<minor>.<patch>`. `copier copy`
+  without `--vcs-ref` writes a product from the newest release, never from a pre-release
+  tag or from what `main` has since, and records the tag as `_commit` in
+  `.copier-answers.yml`. `copier update` moves a product from the release it records to
+  the newest one, also a product that was made before the first tag, and refuses a
+  product with changes that are not committed.
+  Held by: `tests/test_release.py::test_copier_takes_the_newest_release_and_not_what_main_has_since`,
+  `tests/test_release.py::test_an_update_goes_from_the_release_a_product_has_to_the_newest`.
+- **REL-2** — `CHANGELOG.md` has a section for every release, the newest first, under
+  `[Unreleased]`. A section says what changes for a product. The release the README
+  names with `--vcs-ref` is the newest one the changelog has.
+  Held by: `tests/test_release.py::test_the_changelog_has_a_section_for_every_release_newest_first`.

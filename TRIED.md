@@ -296,6 +296,9 @@ On a workspace:
 
 On GitHub:
 
+- **A release.** The repository has no tag. That copier takes the newest tag, leaves a
+  pre-release and what `main` has since, and updates a product from one tag to the next
+  was seen with a template in a local git repository only. [#22](https://github.com/kostavo-oss/data-product-template/issues/22)
 - **The CI gate for more than one case.** It refused a removed column on a pull request
   on 2026-10-10. A new version file and a compatible edit were seen to pass in a local
   repository only.

@@ -198,3 +198,19 @@ product without lely. The script is a lely step, and that is what gives it `plan
 Rejected: allowing the `dbt` verb of `ops/ports.py` in a product without dbt, where it
 could only say that there is no dbt project. And a second scope script without the
 library for a product without lely: two scripts to keep in step, for one import.
+
+## 23. 2026-10-11 — A release is a tag and a section of the changelog; the first is 0.1.0
+
+copier reads tags and nothing else: it takes the newest one that is a version, records
+it in the product, and updates from the recorded one to the newest. So the tag is the
+release, and `CHANGELOG.md` says what it changes for a product, because an update is a
+moment at which somebody asks. The first is `0.1.0`: a number under 1 says what the
+README says, that this is early, and `tests/test_update.py` had called the first
+version that since it was written. A section has no date: the tag has one.
+
+Rejected: a version in `pyproject.toml`, which is the tests' own and stays `0.0.0`: the
+template is not a package, and a second place for the number goes stale. And a release
+page on GitHub as what a release is: copier does not read it, and it would be a second
+changelog.
+
+When the first tag is made is the owner's word (#22), and is not decided here.
