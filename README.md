@@ -23,7 +23,7 @@ mise run job        # the job: ingest, then transform
 ```
 
 copier takes the newest release: the newest tag, and `main` only while there is no tag.
-`--vcs-ref v0.2.0` takes a release by name, and `--vcs-ref main` what is not released
+`--vcs-ref v0.3.0` takes a release by name, and `--vcs-ref main` what is not released
 yet. [CHANGELOG.md](CHANGELOG.md) says what each release changes.
 
 Later, in the product, `uvx copier update` moves it from the release it was made from to
