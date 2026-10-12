@@ -433,6 +433,49 @@ def test_whose_tables_are_whose_is_said_by_schema(sql, sql_bare, both_bare, tmp_
     assert "other is dlt's" in done.stdout + done.stderr
 
 
+def test_the_contracts_role_is_nobody_until_the_project_says_who(
+    sql, sql_bare, both, tmp_path
+):
+    # Holds STV-10.
+    contract = yaml.safe_load((sql / SQUARES).read_text())
+    project_file = yaml.safe_load((sql / "stevin/stevin.yml").read_text())
+
+    assert [(r["role"], r["access"]) for r in contract["roles"]] == [("reader", "read")]
+    assert project_file["contract_roles"] == {"reader": []}
+    assert "grants" not in yaml.safe_load((sql / "stevin/tables/squares.yml").read_text())
+    # Without a contract the table takes, nothing speaks of roles.
+    assert "roles" not in yaml.safe_load((both / SQUARES).read_text())
+    for project in (sql_bare, both):
+        assert "contract_roles" not in (project / "stevin/stevin.yml").read_text()
+
+    # A group in the place of nobody is taken as it stands.
+    named = Path(shutil.copytree(sql, tmp_path / "named"))
+    file = named / "stevin/stevin.yml"
+    file.write_text(file.read_text().replace("reader: []", "reader: [analysts]"))
+    done = validate(named, "-t", "prod")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert done.stdout.strip() == "1 spec OK."
+
+
+def test_a_role_the_project_does_not_name_is_refused(sql, tmp_path):
+    # Holds STV-10.
+    project = Path(shutil.copytree(sql, tmp_path / "sql"))
+    contract = project / SQUARES
+    contract.write_text(
+        contract.read_text().replace(
+            "  - role: reader\n",
+            "  - role: steward\n    access: write\n  - role: reader\n",
+        )
+    )
+
+    done = validate(project, "-t", "prod")
+
+    said = done.stdout + done.stderr
+    assert done.returncode == 1, said
+    assert "steward" in said
+    assert "squares.yml" in said
+
+
 # ── where stevin runs: the tasks, and the step of the deploy ─────────────────
 
 
@@ -442,7 +485,7 @@ def test_the_tasks_are_there_and_stevin_is_pinned_in_one_place(with_stevin):
         mise = tomllib.loads((project / "mise.toml").read_text())
         tasks = mise["tasks"]
 
-        assert mise["tools"]["pipx:stevin"] == "0.4.0a3"
+        assert mise["tools"]["pipx:stevin"] == "0.4.0a4"
         assert {name for name in tasks if name.startswith("tables:")} == TASKS
         assert tasks["tables:validate"]["run"] == "stevin validate -c stevin/stevin.yml"
         assert "stevin validate -c stevin/stevin.yml" in tasks["check"]["run"]
@@ -455,7 +498,7 @@ def test_the_tasks_are_there_and_stevin_is_pinned_in_one_place(with_stevin):
         pinned = [
             path
             for path in files(project)
-            if "0.4.0a3" in (project / path).read_text(errors="replace")
+            if "0.4.0a4" in (project / path).read_text(errors="replace")
         ]
         assert pinned == ["mise.toml"]
 

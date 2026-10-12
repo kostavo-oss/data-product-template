@@ -328,3 +328,27 @@ request could set.
 The cost: `ci` now runs again whenever any label is put on or taken off a pull request,
 because GitHub has no trigger for one label. And the workflow has its first `${{ }}`,
 for the label: it is in `env:`, and no script has one.
+
+## 29. 2026-10-12 — A contract's role is nobody until the product says who
+
+A product with stevin, contracts and no dbt gets one role in the contract of `squares`,
+`reader` with `read`, and `contract_roles: {reader: []}` in `stevin/stevin.yml`. stevin
+0.4.0a4 turns a role into a grant, and the pin moves to it.
+
+The role is mapped to nobody. Rejected: a placeholder group such as `analysts`. A group
+that is not on the account stops the tables step, which is part of the first deploy
+here. And a new product would grant to a name nobody chose. `[]` is stevin's word
+for nobody, so the chain is whole and one edit away from a grant.
+
+The role stands in the contract and is not a comment. With the role and the map both
+live, `mise run check` holds the pair together: a role without a line in the map is
+refused. As a comment it would be an example nothing checks.
+
+Only where stevin makes the table from the contract. Rejected: the same role in the
+contract of a product with dbt. dbt builds that table and stevin takes no spec for it,
+so nothing would read the role, and the contract would name access that nobody grants.
+
+The cost: the label `access-reviewed` guards the contract and not `stevin.yml`. Who a
+role is changes in a file the gate does not read, and is seen in the pull request and
+in the plan only. The rules for agents say so. Rejected for now: a second check on
+`contract_roles:`, which would have to know the targets' variables to say who was added.

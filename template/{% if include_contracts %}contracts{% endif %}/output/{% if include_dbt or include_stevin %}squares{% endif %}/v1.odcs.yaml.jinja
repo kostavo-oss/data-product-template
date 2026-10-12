@@ -38,6 +38,18 @@ schema:
         description: The root of the square, which is the number again.
         logicalType: number
         physicalType: double
+{%- if include_stevin and not include_dbt %}
+
+# Who may use the table, as roles. A role is a name here and no group: group names differ
+# per workspace, so stevin/stevin.yml says who a role is (`contract_roles:`), and stevin
+# grants what `access` says: `read` is SELECT, `write` is SELECT and MODIFY. A role that
+# is added, or an access that is raised, is refused by CI until a person puts the label
+# `access-reviewed` on the pull request.
+roles:
+  - role: reader
+    access: read
+    description: Reads the table and changes nothing.
+{%- endif %}
 
 # Where the table is. {% if include_dbt %}A dbt model{% else %}The table{% endif %} is built on the workspace only, so there is one server.
 # The names differ per target, so they are variables: the Data Contract CLI fills them from

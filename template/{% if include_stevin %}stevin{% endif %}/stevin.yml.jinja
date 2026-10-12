@@ -48,6 +48,16 @@ owned_elsewhere:
 {%- elif include_dbt %}
   ${catalog}.${resources.schemas.silver.name}.*: dbt
 {%- endif %}
+{%- if include_contracts and not include_dbt %}
+
+# Who a role of a contract is on a workspace. The contract of `squares` names the role
+# `reader`, and here it is nobody: `[]` gives no grant. Put a group of the account in its
+# place, or a list of them, and the next plan shows the GRANT. A group has to exist
+# before the plan runs: stevin names groups and cannot make them. Every role of a
+# contract needs a line here, and one without is refused by `mise run check`.
+contract_roles:
+  reader: []
+{%- endif %}
 
 # No `history_schema`: an apply is not recorded and takes no lock. What one gives, and
 # how to name it: https://kostavo-oss.github.io/tools/stevin/spec/#the-project-file
