@@ -350,6 +350,28 @@ made again with these versions, mise in a new and empty home folder. No workspac
 | `mise install`, `mise run check`, `mise run dev` and `lely validate` after the update | exit 0 each; lely 0.4.1 and stevin 0.4.0a3 where the product has them |
 | `stevin validate -t prod` with the `owned_elsewhere` lines of 0.1.0, under stevin 0.4.0a3 | `1 spec OK.`; exit 0 |
 
+## 2026-10-11: loosened access at the contract gate, on a laptop
+
+With `datacontract-cli[duckdb,databricks]==1.2.4` through `uvx`, in a local git
+repository made from a product without dbt. No workspace, and nothing on GitHub. The
+contract of `numbers` was first given classifications and tags, on a nested property and
+in an array too, and two roles, and committed on `main`: ODCS v3.2.0, and `ports.py lint`
+called it valid. Then `v1.odcs.yaml` was edited on a branch.
+
+| What | Printed |
+|---|---|
+| `datacontract breaking` on a lowered and a removed classification, removed tags, an added role, a raised access | `[ 10 Info ]`, every row `INFO`; exit 0 |
+| `datacontract breaking --help` and `changelog --help` | no option for a format a script reads |
+| `ports.py breaking --base main` on those edits | `…/v1.odcs.yaml: compatible` on stdout; on stderr one line each, such as `contracts/output/numbers/v1.odcs.yaml: numbers.id: classification restricted -> public`, `…: numbers.buyer.email: classification confidential -> none`, `…: numbers.lines.items.sku: classification internal -> PUBLIC`, `…: numbers.id: tag pii -> none`, `…: the contract: tag region:eu -> region:us`, `…: role analysts: access read -> write`, `…: role everyone: no such role -> access read`, then the sentence naming the label; exit 2 |
+| the same with a classification changed from `Secret` to `internal` | `…: numbers.square: classification Secret -> internal`; exit 2 |
+| the same with `--access-reviewed` | the same lines on stdout as `…/v1.odcs.yaml: reviewed: numbers.id: classification restricted -> public`; nothing on stderr; exit 0 |
+| `--access-reviewed` with a column removed as well | `a breaking change needs a new version, v2.odcs.yaml beside it`; exit 2 |
+| a raised classification, an added tag, a removed role, a lowered access | `…/v1.odcs.yaml: compatible`; nothing on stderr; exit 0 |
+| the script of the workflow's step, by bash with a stand-in for `uv`, `ACCESS_REVIEWED` set to `true`, to `false` and to nothing | the flag is passed for `true` only |
+
+`tests/test_contracts.py` runs this again on every change. The label itself is under
+"Not yet".
+
 ## Not yet
 
 On a workspace:
@@ -420,6 +442,11 @@ On GitHub:
 - **The CI gate for more than one case.** It refused a removed column on a pull request
   on 2026-10-10. A new version file and a compatible edit were seen to pass in a local
   repository only.
+- **The label `access-reviewed`, on a pull request.** That GitHub's expression is `true`
+  with the label and `false` without, that putting the label on or taking it off starts
+  `ci` again, and that the step then fails without it and passes with it: none of it has
+  run on GitHub. The step's script ran under bash on a laptop, with the variable set by
+  hand. [#31](https://github.com/kostavo-oss/data-product-template/issues/31)
 
 On a laptop:
 
@@ -429,6 +456,8 @@ On a laptop:
 - **Two products on one laptop that load the same input port.** A pipeline that keeps
   an input contract is named after the port, so they share dlt's state as two examples
   did. [#28](https://github.com/kostavo-oss/data-product-template/issues/28)
+- **The access check on a contract of ODCS 3.0.2 or 3.1.0.** The three fields it reads
+  are the same in those schemas; only 3.2.0 contracts were run.
 - **`copier update` on a product that takes stevin later.** The contract of a product
   without dbt moves from `numbers` to `squares` when stevin is switched on, and
   `contracts/**` is the product's own.

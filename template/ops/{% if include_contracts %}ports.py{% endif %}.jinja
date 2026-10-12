@@ -13,7 +13,8 @@ Contract CLI does the work, as a pinned command; this file only knows where thin
     test [--server NAME]    every output contract against the data (default: local)
     pull                    fetch every input port's contract and keep it as a snapshot
     check [--server NAME]   before a run: is what is read still what was pulled
-    breaking --base REF     before a merge: no breaking edit to a contract that is out
+    breaking --base REF     before a merge: no breaking edit to a contract that is out,
+                            and no access loosened unseen (below)
     catalog                 the contracts as pages, in site/contracts/
     edit [PORT]             an output contract in the Data Contract Editor, on this machine
 {%- if include_dbt %}
@@ -30,6 +31,13 @@ on what the CLI says, and the CLI says 1 for a contract that fails.
 Exit codes: 0 fine, 1 could not run, 2 refused. `lint`, `test` and `catalog` hand on what
 the CLI says, and the CLI says 1 for a contract that fails.
 {%- endif %}
+
+`breaking` also refuses an edit to a contract that is out when it loosens access, which
+the CLI lets through: a classification lowered or taken away, a tag removed, a role
+added, a role's access raised. Each is a line naming the file, the field and what it was
+and is. `breaking --base REF --access-reviewed` prints the same lines as reviewed and
+lets them pass: it is how a person says they saw them. A breaking edit is refused with
+it as without.
 """
 
 import argparse
@@ -241,6 +249,113 @@ def check(args) -> int:
     return REFUSED if REFUSED in codes else COULD_NOT_RUN if codes else FINE
 
 
+# What says who may see the data, each from the most open to the most closed. The words
+# are the contract's own free text, so a word that is on neither list can only be told
+# to have changed, not which way.
+CLASSIFICATIONS = ("public", "internal", "confidential", "restricted")
+ACCESS = ("read", "write")
+
+
+def listed(value: object) -> list:
+    return value if isinstance(value, list) else []
+
+
+def said(value: object) -> str | None:
+    """A word of the contract without its case, or None where nothing is said."""
+    word = "" if value is None else str(value).strip().casefold()
+    return word or None
+
+
+def word(value: object) -> str:
+    return str(value).strip() if said(value) else "none"
+
+
+def steps(before: object, after: object, order: tuple[str, ...]) -> int | None:
+    """How far a word moved along its order: 0 when it stayed, and None when it changed
+    and one side is not a word of the order, so the way it went is not known."""
+    old, new = said(before), said(after)
+    if old == new:
+        return 0
+    if old in order and new in order:
+        return order.index(new) - order.index(old)
+    return None
+
+
+def fields(contract: dict) -> dict[str, dict]:
+    """Every schema object of a contract and every property under it, however deep, by
+    its dotted path: `orders.buyer.email`, and `orders.lines.items.sku` in an array."""
+    found = {}
+
+    def walk(path: str, field: dict) -> None:
+        found[path] = field
+        for under in listed(field.get("properties")):
+            if isinstance(under, dict) and under.get("name") is not None:
+                walk(f"{path}.{under['name']}", under)
+        if isinstance(field.get("items"), dict):
+            walk(f"{path}.items", field["items"])
+
+    for table in listed(contract.get("schema")):
+        if isinstance(table, dict) and table.get("name") is not None:
+            walk(str(table["name"]), table)
+    return found
+
+
+def tags_removed(before: dict, after: dict) -> list[str]:
+    """Every tag that is gone. Every one counts: any tag can be the one a masking policy
+    keys off, and nothing here knows which. A `key:value` tag whose value changed is
+    gone too, and is shown with the value that took its place."""
+    old = [str(tag) for tag in listed(before.get("tags"))]
+    new = [str(tag) for tag in listed(after.get("tags"))]
+    found = []
+    for tag in dict.fromkeys(old):
+        if tag in new:
+            continue
+        key = tag.split(":", 1)[0] + ":"
+        now = [t for t in new if ":" in tag and t.startswith(key) and t not in old]
+        found.append(f"tag {tag} -> {', '.join(now) or 'none'}")
+    return found
+
+
+def roles(contract: dict) -> dict[str, list]:
+    """The access each role has, by the role's name. A name may be there twice."""
+    found: dict[str, list] = {}
+    for role in listed(contract.get("roles")):
+        if isinstance(role, dict) and role.get("role") is not None:
+            found.setdefault(str(role["role"]), []).append(role.get("access"))
+    return found
+
+
+def loosened(before: dict, after: dict) -> list[str]:
+    """Where an edit to a contract opens the data to more readers or writers: one
+    sentence each, the field and what it was and is. What closes it is not named.
+
+    A property or an object that is gone is the CLI's to refuse, and a new one has no
+    earlier state to compare with: neither is looked at.
+    """
+    found = [f"the contract: {tag}" for tag in tags_removed(before, after)]
+    was = fields(before)
+    for path, field in fields(after).items():
+        if path not in was:
+            continue
+        old, new = was[path].get("classification"), field.get("classification")
+        moved = steps(old, new, CLASSIFICATIONS)
+        if said(old) and (moved is None or moved < 0):
+            found.append(f"{path}: classification {word(old)} -> {word(new)}")
+        found += [f"{path}: {tag}" for tag in tags_removed(was[path], field)]
+    had = roles(before)
+    for name, access in roles(after).items():
+        if name not in had:
+            found += [f"role {name}: no such role -> access {word(a)}" for a in access]
+            continue
+        for new in access:
+            # Raised, unless it is no more than some access the role already had.
+            moves = [steps(old, new, ACCESS) for old in had[name]]
+            if not any(moved is not None and moved <= 0 for moved in moves):
+                old = ", ".join(word(a) for a in had[name])
+                found.append(f"role {name}: access {old} -> {word(new)}")
+    return found
+
+
 def git(*words: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", *words], cwd=ROOT, capture_output=True, check=False)
 
@@ -248,14 +363,23 @@ def git(*words: str) -> subprocess.CompletedProcess:
 def breaking(args) -> int:
     if git("rev-parse", "--verify", "--quiet", args.base + "^{commit}").returncode != 0:
         raise Stop(f"git does not know {args.base} here: fetch it", COULD_NOT_RUN)
-    refused = 0
+    refused = unseen = 0
     for path in sorted((ROOT / "contracts" / "output").glob("*/v*.odcs.yaml")):
         base = git("show", f"{args.base}:./{shown(path)}")
         if base.returncode != 0:
             print(f"{shown(path)}: new")
             continue
-        change = compare(base.stdout, path.read_bytes())
+        now = path.read_bytes()
+        change = compare(base.stdout, now)
         print(f"{shown(path)}: {change}")
+        if change != "same":
+            before = document(base.stdout, f"{shown(path)} at {args.base}")
+            for finding in loosened(before, document(now, shown(path))):
+                if args.access_reviewed:
+                    print(f"{shown(path)}: reviewed: {finding}")
+                else:
+                    print(f"{shown(path)}: {finding}", file=sys.stderr)
+                    unseen += 1
         if change == "breaking":
             following = int(path.name.split(".")[0].lstrip("v")) + 1
             print(
@@ -264,7 +388,14 @@ def breaking(args) -> int:
                 file=sys.stderr,
             )
             refused += 1
-    return REFUSED if refused else FINE
+    if unseen:
+        print(
+            "This loosens access to a contract that is out. It passes once a person has "
+            "seen it: the label `access-reviewed` on the pull request, or "
+            "`--access-reviewed` here.",
+            file=sys.stderr,
+        )
+    return REFUSED if refused or unseen else FINE
 
 
 def catalog(args) -> int:
@@ -462,6 +593,11 @@ def main() -> int:
     opened.set_defaults(run=editor)
     against = verbs.add_parser("breaking")
     against.add_argument("--base", required=True, help="the git ref to compare with")
+    against.add_argument(
+        "--access-reviewed",
+        action="store_true",
+        help="a person saw the access this loosens: print it and let it pass",
+    )
     against.set_defaults(run=breaking)
 {%- if include_dbt %}
     sync = verbs.add_parser("dbt")

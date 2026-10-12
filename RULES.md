@@ -266,14 +266,39 @@ product gets, `REL` a release of the template.
   `tests/test_stevin.py::test_the_contract_of_squares_is_there_with_stevin_and_no_dbt`.
 - **CON-5** — On a pull request the product's `ci` compares every output contract that
   exists with the base branch. A breaking edit is refused with exit code 2 and the name
-  of the next version file. A compatible edit and a new version file pass. A base git
-  does not know is exit code 1, not a pass. A version file that was removed is not
-  judged.
+  of the next version file. A compatible edit that loosens no access (CON-16) and a new
+  version file pass. A base git does not know is exit code 1, not a pass. A version file
+  that was removed is not judged.
   Held by: `tests/test_contracts.py::test_ci_compares_the_contracts_with_the_base_branch`,
   `tests/test_contracts.py::test_a_compatible_edit_passes_the_gate`,
   `tests/test_contracts.py::test_a_breaking_edit_to_v1_is_refused`,
   `tests/test_contracts.py::test_a_new_version_passes_the_gate`,
   `tests/test_contracts.py::test_a_base_git_does_not_know_is_not_a_pass`.
+- **CON-16** — `breaking` refuses, with exit code 2, an edit to an output contract the
+  base branch has when it loosens access, although the Data Contract CLI calls the edit
+  compatible. Each is one line on stderr: the file, the field, and what it was and is.
+  Three things loosen access. A classification that is lowered or taken away, on a
+  property at any depth, named by its dotted path: the order is `public`, `internal`,
+  `confidential`, `restricted`, whatever the case, and a change from or to any other word
+  is refused too, because its direction is not known. A tag that is removed from the
+  contract, a schema object or a property: every tag counts, and a `key:value` tag with
+  another value is removed. A role that is added, or whose `access` is raised: the order
+  is `read`, `write`, and a change from or to any other word, or to or from none, is
+  refused too. What tightens access passes and is not printed: a classification raised
+  or given where there was none, a tag added, a role removed, an access lowered. A
+  property that is new is not judged, and one that is removed is the CLI's to refuse. A
+  new version file is not compared with the version before it (#30).
+  Held by: `tests/test_contracts.py::test_an_edit_that_loosens_access_is_refused_by_the_field`,
+  `tests/test_contracts.py::test_an_edit_that_tightens_access_passes_the_gate`.
+- **CON-17** — Loosened access passes once a person has said they saw it. With
+  `--access-reviewed`, `breaking` prints the lines of CON-16 on stdout, each marked
+  `reviewed`, and does not refuse for them; a breaking edit is refused all the same. The
+  product's `ci` gives the flag only when the pull request carries the label
+  `access-reviewed`, runs again when a label is put on or taken off, and reads the label
+  from a variable of the environment, never from text put into the script.
+  Held by: `tests/test_contracts.py::test_loosened_access_that_was_reviewed_passes_and_is_still_printed`,
+  `tests/test_contracts.py::test_a_breaking_edit_is_refused_with_access_reviewed_too`,
+  `tests/test_contracts.py::test_ci_compares_the_contracts_with_the_base_branch`.
 - **CON-6** — `lint` checks every contract, and refuses with exit code 2 an output port
   that has no contract of its own.
   Held by: `tests/test_contracts.py::test_lint_passes_on_what_was_written`,

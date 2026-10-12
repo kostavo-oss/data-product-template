@@ -293,3 +293,38 @@ lely would then run the job on every apply, and that is a change of its own to a
 Rejected too: softening the `apply` workflow for the first deploy, with a step that
 turns exit code 2 at a waiting step into a pass. A plan lely refuses ends with 2 as
 well, and a green job would hide that.
+
+## 28. 2026-10-11 — Loosened access is refused until a person labels it
+
+The Data Contract CLI's `breaking` rates every change to a classification, a tag or a
+role "info" and exits 0 (#26). Since tags from a contract drive masking, such an edit
+can open data and pass unseen. `ops/ports.py breaking` now makes an access check of its
+own.
+
+The check reads the two YAML documents itself and does not read the CLI's change list,
+which is what #26 asked for. At 1.2.4 the CLI prints that list as a table drawn for
+people, cut to the width of the terminal, and neither `breaking` nor `changelog` has an
+option for a format a script can read. A check that parsed the table would break with
+its layout. What the check reads is three fields that are the same in the ODCS schemas
+of 3.0.2, 3.1.0 and 3.2.0.
+
+Every removed tag counts. Rejected: a list of sensitive tags in the script, such as
+`pii`. Which tag a masking policy keys off is the workspace's to say, and the script
+cannot know it; and `ops/ports.py` is wiring, so a product could not change the list
+without an update of the template.
+
+A word that is in neither order is refused when it changes. `classification` and
+`access` are free text in ODCS, so the script cannot tell which way `secret` to
+`internal` goes, and a guess that passes is the leak the check is there to stop.
+
+The way through is a label on the pull request, `access-reviewed`, which `ci` hands on
+as `--access-reviewed`. Adding a consumer is ordinary work and must stay possible, so
+the check is not there to stop it: it is there so that it does not pass unseen, and only
+someone who may label a pull request can let it through. Rejected: refusing with no way
+through, which would stop every new role, or push it into a new version file that is
+not compared at all (#30). And an option in a file of the product, which the same pull
+request could set.
+
+The cost: `ci` now runs again whenever any label is put on or taken off a pull request,
+because GitHub has no trigger for one label. And the workflow has its first `${{ }}`,
+for the label: it is in `env:`, and no script has one.

@@ -40,6 +40,12 @@ Every rule comes with its reason. Keep a rule when the reason holds; say so when
   `dataproduct.yaml`, and never an edit.** Other products read the table by what the
   contract says, and nobody tells them when it changes. CI compares the file with the base
   branch and refuses a breaking edit; a new file always passes.
+- **An edit to an output contract that loosens access is a person's to let through, never
+  an agent's.** CI refuses a classification that is lowered or taken away, a tag that is
+  removed, a role that is added and an `access` that is raised, and passes them only when
+  the pull request has the label `access-reviewed`. Say in the pull request which fields
+  open up and why. Do not put the label on, and do not add `--access-reviewed` to the
+  workflow or to a task: the label is how a person says they saw it.
 - **A contract under `contracts/input/` is never edited by hand.** It is a snapshot of
   another product's promise, written by `mise run contracts:pull`. An edit makes the
   check compare the producer with something the producer never said.

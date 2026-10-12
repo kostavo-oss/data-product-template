@@ -238,6 +238,19 @@ table, so it changes in the same pull request as the {% if include_dbt %}model{%
 reader is a new file, `v2.odcs.yaml`, with its own entry in `dataproduct.yaml`. CI
 compares the contract with the base branch and refuses a breaking edit.
 
+CI also refuses an edit to that file which loosens access, because tags and roles decide
+who sees the data: a `classification` that is lowered or taken away, a tag that is
+removed (any tag: a masking policy may key off it), a role that is added, or a role whose
+`access` goes up. The job names the file and the field, for example
+`{% if include_dbt or include_stevin %}squares{% else %}numbers{% endif %}.id: classification restricted -> public`. Such a change is ordinary work, and
+it passes once somebody has looked: give the pull request the label `access-reviewed`
+(make the label in the repository the first time), and CI runs again and prints the same
+lines as reviewed. To see them before a push:
+`uv run ops/ports.py breaking --base main`. A classification is compared as `public`,
+`internal`, `confidential`, `restricted` and an access as `read`, `write`; a change to or
+from any other word is refused too. A new version file is not compared with the one
+before it.
+
 ```sh
 mise run contracts:lint       # every contract is valid; also part of `mise run check`
 {%- if not (include_dbt or include_stevin) %}

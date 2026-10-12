@@ -6,6 +6,17 @@ the release it was made from to the newest one.
 
 ## [Unreleased]
 
+- With contracts, the gate on a pull request refuses an edit to a contract that is out
+  when it loosens access, which the Data Contract CLI lets through: a classification
+  lowered or taken away, a tag removed, a role added, a role's access raised. It names
+  the file and the field and ends with exit code 2. The pull request passes once someone
+  gives it the label `access-reviewed`: `ci` then runs again and prints the same lines
+  as reviewed. At a terminal that is `uv run ops/ports.py breaking --base main
+  --access-reviewed`. `uvx copier update` moves `ops/ports.py` and
+  `.github/workflows/ci.yml`: nothing is done by hand, but `ci` now also runs when a
+  label is put on or taken off a pull request. A contract that says nothing of
+  classifications, tags or roles is judged as before.
+
 ## [0.2.0]
 
 The table changes are in the plan a pull request reviews, and two products on one laptop
