@@ -6,6 +6,8 @@ the release it was made from to the newest one.
 
 ## [Unreleased]
 
+## [0.3.0]
+
 - With contracts, the gate on a pull request refuses an edit to a contract that is out
   when it loosens access, which the Data Contract CLI lets through: a classification
   lowered or taken away, a tag removed, a role added, a role's access raised. It names
