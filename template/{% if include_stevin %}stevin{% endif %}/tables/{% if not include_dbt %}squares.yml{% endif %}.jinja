@@ -26,7 +26,12 @@ constraints:
 cluster_by: [id]
 tags:
   product: {{ project_name }}
+{%- if include_contracts %}
+# Who may read it is not said here. The contract names a role, and `contract_roles:` in
+# ../stevin.yml says who that role is. A grant written here joins the role's.
+{%- else %}
 # Who may read it. The group has to exist on the account before the plan runs.
 # grants:
 #   - principal: analysts
 #     privileges: [SELECT]
+{%- endif %}

@@ -54,6 +54,12 @@ Every rule comes with its reason. Keep a rule when the reason holds; say so when
   `mise run check` lints the contracts{% if not (include_dbt or include_stevin) %}, and `mise run contracts:test` tests the table
   `mise run dev` loaded{% endif %}.
 {%- endif %}
+{%- if include_stevin and include_contracts and not include_dbt %}
+- **Who a role of a contract is, is a person's to say.** `contract_roles:` in
+  `stevin/stevin.yml` turns a role into a grant on a workspace, and no label guards that
+  file. Do not put a principal there, or widen one, unless the task asks for it by name,
+  and say in the pull request which role now reaches whom.
+{%- endif %}
 {%- if include_stevin %}
 - **A table stevin owns is changed through its spec in `stevin/`, never by hand on the
   workspace.** stevin compares the specs with what is there and plans the difference. A

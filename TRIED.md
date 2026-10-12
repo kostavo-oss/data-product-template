@@ -372,6 +372,18 @@ called it valid. Then `v1.odcs.yaml` was edited on a branch.
 `tests/test_contracts.py` runs this again on every change. The label itself is under
 "Not yet".
 
+## 2026-10-12: a contract's role and stevin 0.4.0a4, on a laptop
+
+A product with stevin, contracts and no dbt, made from the working tree. No workspace
+was reached: `stevin validate` asks one nothing.
+
+| What | What it did |
+|---|---|
+| `stevin validate -t prod` under stevin 0.4.0a4, the role `reader` mapped to nobody | `1 spec OK.`; exit 0, no warning |
+| The same with `reader: [analysts]` | `1 spec OK.`; exit 0 |
+| A second role in the contract that `stevin.yml` does not name | exit 1, naming the role and the spec |
+| `uv run ops/ports.py lint` on the contract with `roles:` | exit 0, `Data contract is valid` |
+
 ## Not yet
 
 On a workspace:
@@ -433,6 +445,9 @@ On a workspace:
 - **The access examples applied**: the row filter filtering, the mapping table's rows,
   the tag on the column, and the policy masking it. stevin itself loaded a seed on a
   workspace on 2026-10-10, as its own docs say; no product has. [#13](https://github.com/kostavo-oss/data-product-template/issues/13)
+- **A grant that came from a contract's role.** With a group in the place of `[]`, the
+  plan should show a `GRANT SELECT` on `squares` and the apply should make it. stevin's
+  own tests hold that on a fake warehouse; no product has planned or applied one.
 
 On GitHub:
 

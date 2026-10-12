@@ -6,6 +6,35 @@ the release it was made from to the newest one.
 
 ## [Unreleased]
 
+- A product with stevin, contracts and no dbt says who may read its table in the
+  contract. `contracts/output/squares/v1.odcs.yaml` names a role, `reader`, with the
+  access `read`, and `contract_roles:` in `stevin/stevin.yml` says who that role is on a
+  workspace. A new product maps it to nobody, so nothing is granted until a group stands
+  there. stevin then grants `SELECT`, and the plan shows it. The spec of `squares` no
+  longer carries a grant in a comment.
+- `mise.toml` pins stevin to 0.4.0a4, the first that reads a contract's roles.
+  `uvx copier update` moves the pin, and then `mise install` brings it.
+- A product that exists keeps its contract and its `stevin/` folder: both are the
+  product's own, and the update leaves them. To take the roles by hand, add to the
+  contract
+
+  ```yaml
+  roles:
+    - role: reader
+      access: read
+  ```
+
+  and to `stevin/stevin.yml`
+
+  ```yaml
+  contract_roles:
+    reader: []
+  ```
+
+  The first is a role that is added, so CI refuses that pull request until it has the
+  label `access-reviewed`. Neither has to be taken: without `contract_roles:` stevin
+  0.4.0a4 reads no role and plans as before.
+
 ## [0.3.0]
 
 - With contracts, the gate on a pull request refuses an edit to a contract that is out

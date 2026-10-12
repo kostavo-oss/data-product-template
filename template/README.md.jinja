@@ -133,13 +133,24 @@ stevin does not make a table it does not shape.
 {%- if include_contracts %}
 Its columns, types, key and descriptions come from the contract,
 `contracts/output/squares/v1.odcs.yaml`: a change to the shape is a change there, and
-the spec adds the clustering, the tags and the grants.
+the spec adds the clustering and the tags.
 {%- else %}
 Its columns, types and key are in that file, with the clustering, the tags and the
 grants.
 {%- endif %}
 `sql/squares.sql` fills the table in the job's `transform` task and never makes it. The
 first apply comes after the first deploy and before the first run of the job.
+{%- if include_contracts %}
+
+**Who may read it.** The contract names a role, `reader`, with the access `read`.
+`contract_roles:` in `stevin/stevin.yml` says who that role is on a workspace, and
+stevin grants it `SELECT`. A new product maps the role to nobody: put a group of the
+account in the place of `[]`, and the next plan shows the `GRANT`. A role that is added
+to the contract, or an access that is raised, is refused by CI until a person puts the
+label `access-reviewed` on the pull request. Who a role is stands in `stevin.yml` and is
+not under that label: it is read in the pull request and in the plan. Taking a role out
+of the contract revokes nothing, so take the access away yourself.
+{%- endif %}
 
 **Add a table.** A spec in `stevin/tables/`, a `.sql` file in `sql/` that writes its
 rows, and a task for the file in `resources/{{ project_name }}.job.yml`. The file takes the

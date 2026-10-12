@@ -403,6 +403,14 @@ product gets, `REL` a release of the template.
   lands, so it is applied from the task, after the job has run once, and the README says
   so.
   Held by: `tests/test_stevin.py::test_with_dbt_stevin_is_no_step_of_the_deploy`.
+- **STV-10** — Without dbt and with contracts, the contract of `squares` names one role,
+  `reader` with the access `read`, and `stevin/stevin.yml` says under `contract_roles:`
+  who it is: nobody, so a new product grants nothing. A group in that place is taken. A
+  role of the contract that the project file does not name is refused by
+  `stevin validate`, naming the role and the spec. In every other combination neither
+  file speaks of roles.
+  Held by: `tests/test_stevin.py::test_the_contracts_role_is_nobody_until_the_project_says_who`,
+  `tests/test_stevin.py::test_a_role_the_project_does_not_name_is_refused`.
 
 ## ACC — the access examples
 
